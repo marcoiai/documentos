@@ -1,13 +1,17 @@
 {
   "name": "documentos-app",
   "version": "1.0.0",
-  "description": "",
+  "description": "App de documentos em TypeScript (compilado para app.js)",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
 }
