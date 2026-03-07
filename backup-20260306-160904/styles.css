@@ -1,0 +1,154 @@
+:root {
+  --bg: #f3f4f6;
+  --card: #ffffff;
+  --line: #d1d5db;
+  --text: #111827;
+  --muted: #6b7280;
+  --primary: #065f46;
+  --danger: #b91c1c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.topbar {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  background: #e5e7eb;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.layout {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 17px;
+}
+
+.stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+input,
+select,
+button {
+  font: inherit;
+}
+
+input,
+select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 8px;
+}
+
+button {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+}
+
+button.ghost {
+  background: white;
+  color: var(--text);
+  border-color: var(--line);
+}
+
+button.danger {
+  background: var(--danger);
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.item strong,
+.item small {
+  display: block;
+}
+
+.item small {
+  color: var(--muted);
+}
+
+.empty {
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  padding: 8px;
+}
+
+.section-box {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.section-box legend {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+@media (max-width: 1020px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

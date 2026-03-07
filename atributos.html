@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Documentos App - Atributos</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="grey lighten-4">
+    <nav class="teal darken-2">
+      <div class="nav-wrapper container" style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="brand-logo" style="position:static;transform:none;">Documentos</span>
+        <div>
+          <a href="index.html" class="white-text" style="margin-right:12px;">Tipos</a>
+          <a href="secoes.html" class="white-text" style="margin-right:12px;">Secoes</a>
+          <a href="atributos.html" class="white-text" style="margin-right:12px;">Atributos</a>
+          <a href="documentos.html" class="white-text" style="margin-right:12px;">Documento</a>
+          <a href="layout.html" class="white-text">Layout</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container page-content">
+      <section id="tab-atributos" class="tab-panel" style="display:block;">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">2) Atributos por Documento Tipo</span>
+
+            <form id="atributoForm">
+              <input type="hidden" id="atributoId" />
+
+              <div class="input-field">
+                <select id="atributoTipo" required></select>
+                <label for="atributoTipo">Documento Tipo</label>
+              </div>
+
+              <div class="input-field">
+                <input id="atributoNome" type="text" required />
+                <label for="atributoNome">Nome do atributo</label>
+              </div>
+
+              <div class="input-field">
+                <select id="atributoTipoCampo">
+                  <option value="texto">Texto</option>
+                  <option value="texto_placeholder">Texto com placeholder</option>
+                  <option value="textarea">Textarea</option>
+                  <option value="textarea_template">Textarea (placeholders)</option>
+                  <option value="assinatura">Assinatura</option>
+                  <option value="numero">Numero</option>
+                  <option value="data">Data</option>
+                  <option value="boolean">Booleano</option>
+                </select>
+                <label for="atributoTipoCampo">Tipo do campo</label>
+              </div>
+
+              <div class="input-field" id="atributoTemplateWrap" style="display:none;">
+                <input id="atributoTemplateTexto" type="text" />
+                <label for="atributoTemplateTexto" class="active">Template do texto (use {{campo}})</label>
+              </div>
+
+              <div class="input-field">
+                <select id="atributoSecao"><option value="">Sem secao</option></select>
+                <label for="atributoSecao">Secao</label>
+              </div>
+
+              <div class="input-field">
+                <input id="atributoValidador" type="text" placeholder="required, required_if:@Outro Campo" />
+                <label for="atributoValidador" class="active">Validador (opcional)</label>
+              </div>
+
+              <div class="input-field">
+                <input id="atributoPeso" type="number" step="0.01" placeholder="1.5" />
+                <label for="atributoPeso" class="active">Peso (float, opcional)</label>
+              </div>
+
+              <div class="input-field">
+                <input id="atributoMascara" type="text" placeholder="99/99/9999" />
+                <label for="atributoMascara" class="active">Mascara (opcional, 9 = coringa)</label>
+              </div>
+
+              <div class="action-row">
+                <button type="submit" class="btn waves-effect waves-light">Salvar Atributo</button>
+                <button type="button" id="atributoCancelBtn" class="btn-flat">Cancelar</button>
+              </div>
+            </form>
+
+            <ul id="atributosList" class="collection app-list"></ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

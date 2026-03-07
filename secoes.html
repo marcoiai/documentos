@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Documentos App - Secoes</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="grey lighten-4">
+    <nav class="teal darken-2">
+      <div class="nav-wrapper container" style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="brand-logo" style="position:static;transform:none;">Documentos</span>
+        <div>
+          <a href="index.html" class="white-text" style="margin-right:12px;">Tipos</a>
+          <a href="secoes.html" class="white-text" style="margin-right:12px;">Secoes</a>
+          <a href="atributos.html" class="white-text" style="margin-right:12px;">Atributos</a>
+          <a href="documentos.html" class="white-text" style="margin-right:12px;">Documento</a>
+          <a href="layout.html" class="white-text">Layout</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container page-content">
+      <section id="tab-secoes" class="tab-panel" style="display:block;">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">1) Tipos de Secao</span>
+
+            <form id="secaoForm">
+              <input type="hidden" id="secaoId" />
+              <div class="input-field">
+                <input id="secaoNome" type="text" required />
+                <label for="secaoNome">Nome da secao</label>
+              </div>
+              <div class="input-field">
+                <textarea id="secaoCabecalho" class="materialize-textarea"></textarea>
+                <label for="secaoCabecalho">Cabecalho (opcional)</label>
+              </div>
+              <div class="input-field">
+                <textarea id="secaoRodape" class="materialize-textarea"></textarea>
+                <label for="secaoRodape">Rodape (opcional)</label>
+              </div>
+              <div class="action-row">
+                <button type="submit" class="btn waves-effect waves-light">Salvar Secao</button>
+                <button type="button" id="secaoCancelBtn" class="btn-flat">Cancelar</button>
+              </div>
+            </form>
+
+            <ul id="secoesList" class="collection app-list"></ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Documentos App - Documento</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="grey lighten-4">
+    <nav class="teal darken-2">
+      <div class="nav-wrapper container" style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="brand-logo" style="position:static;transform:none;">Documentos</span>
+        <div>
+          <a href="index.html" class="white-text" style="margin-right:12px;">Tipos</a>
+          <a href="secoes.html" class="white-text" style="margin-right:12px;">Secoes</a>
+          <a href="atributos.html" class="white-text" style="margin-right:12px;">Atributos</a>
+          <a href="documentos.html" class="white-text" style="margin-right:12px;">Documento</a>
+          <a href="layout.html" class="white-text">Layout</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container page-content">
+      <section id="tab-documentos" class="tab-panel" style="display:block;">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">3) Documento</span>
+
+            <form id="documentoForm">
+              <input type="hidden" id="documentoId" />
+
+              <div class="input-field">
+                <input id="documentoTitulo" type="text" required />
+                <label for="documentoTitulo">Titulo</label>
+              </div>
+
+              <div class="input-field">
+                <select id="documentoTipo" required>
+                  <option value="" selected>Selecione...</option>
+                </select>
+                <label for="documentoTipo">Documento Tipo</label>
+              </div>
+
+              <div id="documentoCampos" class="documento-campos"></div>
+
+              <div class="action-row">
+                <button type="submit" class="btn waves-effect waves-light">Salvar Documento</button>
+                <button type="button" id="documentoCancelBtn" class="btn-flat">Cancelar</button>
+              </div>
+            </form>
+
+            <ul id="documentosList" class="collection app-list"></ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
