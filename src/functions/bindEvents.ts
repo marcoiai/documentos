@@ -26,6 +26,23 @@ function bindEvents() {
   ui.documentoForm.addEventListener('input', () => refreshTemplatePreviews());
   ui.documentoForm.addEventListener('change', () => refreshTemplatePreviews());
 
+  ui.relatorioTipo.addEventListener('change', onRelatorioTipoChange);
+  ui.relatorioConfigSelect.addEventListener('change', onRelatorioConfigSelectChange);
+  ui.relatorioSalvarConfigBtn.addEventListener('click', saveRelatorioConfig);
+  ui.relatorioSelecionarConfigBtn.addEventListener('click', openRelatorioConfigDialog);
+  ui.relatorioExportConfigBtn.addEventListener('click', exportRelatorioConfigJson);
+  ui.relatorioDialogCloseBtn.addEventListener('click', closeRelatorioConfigDialog);
+  ui.relatorioSalvarLayoutBtn.addEventListener('click', saveRelatorioLayout);
+  ui.relatorioGerarBtn.addEventListener('click', generateRelatorio);
+  ui.relatorioCsvBtn.addEventListener('click', exportRelatorioCsv);
+  ui.relatorioPdfBtn.addEventListener('click', exportRelatorioPdf);
+  ui.relatorioOrdenarAdicionarBtn.addEventListener('click', onRelatorioAdicionarOrdenacao);
+
+  ui.relatorioLayoutTipo.addEventListener('change', onRelatorioLayoutTipoChange);
+  ui.relatorioLayoutConfig.addEventListener('change', onRelatorioLayoutConfigChange);
+  ui.relatorioLayoutSaveBtn.addEventListener('click', saveRelatorioLayoutEditorConfig);
+  ui.relatorioLayoutResetBtn.addEventListener('click', resetRelatorioLayoutEditorConfig);
+
   window.addEventListener('hashchange', syncTabFromRoute);
   document.querySelectorAll('.tabs .tab a').forEach((link) => {
     link.addEventListener('click', () => {
@@ -34,4 +51,3 @@ function bindEvents() {
     });
   });
 }
-

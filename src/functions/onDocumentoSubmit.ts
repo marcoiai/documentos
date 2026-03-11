@@ -1,4 +1,4 @@
-function onDocumentoSubmit(e: Event): void {
+async function onDocumentoSubmit(e: Event): Promise<void> {
   e.preventDefault();
   clearDocumentoFieldErrors();
 
@@ -48,15 +48,17 @@ function onDocumentoSubmit(e: Event): void {
 
   saveState();
   if (savedDoc) {
-    const estrutura = {
-      documento: savedDoc,
-      tipo: state.tipos.find((t) => t.id === savedDoc.tipoId) || null,
-      secoes: getSecoesForTipo(savedDoc.tipoId),
-      atributos: getAtributosByTipo(savedDoc.tipoId),
-      layout: state.layouts[savedDoc.tipoId] || [],
-      layoutSections: state.layoutSections[savedDoc.tipoId] || [],
-    };
+    const estrutura = buildDocumentoEstruturaPayload(savedDoc);
     console.log('[documento:save]', JSON.stringify(estrutura, null, 2));
+    try {
+      const apiResult = await postDocumentoPayloadToApi(estrutura);
+      if (apiResult.sent) {
+        console.log('[documento:api] payload enviado com sucesso');
+      }
+    } catch (error) {
+      console.error('[documento:api] erro ao enviar payload', error);
+      notify('Documento salvo localmente, mas falhou envio para API.');
+    }
   }
   resetDocumentoForm();
   renderAll();

@@ -11,6 +11,7 @@ function loadState(): AppState {
     layouts: {},
     layoutSections: {},
     tipoSecoes: {},
+    reportConfigs: [],
   };
 
   try {
@@ -107,6 +108,7 @@ function loadState(): AppState {
         : {};
     const parsedTipoSecoes =
       parsed.tipoSecoes && typeof parsed.tipoSecoes === 'object' ? parsed.tipoSecoes : {};
+    const parsedReportConfigs = Array.isArray(parsed.reportConfigs) ? parsed.reportConfigs : [];
 
     const layouts: Record<string, LayoutItem[]> = {};
     const layoutSections: Record<string, string[]> = {};
@@ -137,6 +139,44 @@ function loadState(): AppState {
       layouts,
       layoutSections,
       tipoSecoes,
+      reportConfigs: parsedReportConfigs
+        .map((cfg) => ({
+          id: String(cfg.id || ''),
+          nome: String(cfg.nome || '').trim(),
+          tipoId: String(cfg.tipoId || ''),
+          selectedAttrIds: Array.isArray(cfg.selectedAttrIds) ? cfg.selectedAttrIds.map((x) => String(x)) : [],
+          reportLayout: Array.isArray(cfg.reportLayout)
+            ? cfg.reportLayout.map((x) => ({
+              attrId: String(x.attrId || ''),
+              colSpan: clampColSpan(x.colSpan || 6),
+            })).filter((x) => x.attrId)
+            : [],
+          reportBlockOrder: normalizeRelatorioBlockOrder(cfg.reportBlockOrder),
+          reportBlockVisibility: normalizeRelatorioBlockVisibility(cfg.reportBlockVisibility),
+          reportFooterMode: cfg.reportFooterMode === 'after_block' ? 'after_block' : 'fixed_bottom',
+          reportFooterAnchor: ['cabecalho', 'info_geracao', 'tabela'].includes(String(cfg.reportFooterAnchor || ''))
+            ? String(cfg.reportFooterAnchor)
+            : 'tabela',
+          incluirCabecalho: cfg.incluirCabecalho === undefined ? true : Boolean(cfg.incluirCabecalho),
+          incluirRodape: cfg.incluirRodape === undefined ? true : Boolean(cfg.incluirRodape),
+          filtroAttrId: String(cfg.filtroAttrId || ''),
+          filtroOperador: String(cfg.filtroOperador || 'contains'),
+          filtroValor: String(cfg.filtroValor || ''),
+          somarNumericos: Boolean(cfg.somarNumericos),
+          totalAttrIds: normalizeRelatorioTotalAttrIds(cfg.totalAttrIds, String(cfg.tipoId || '')),
+          ordenacao: normalizeRelatorioOrdenacao(
+            Array.isArray(cfg.ordenacao)
+              ? cfg.ordenacao
+              : (cfg.ordenarAttrId
+                ? [{ attrId: String(cfg.ordenarAttrId), direcao: String(cfg.ordenarDirecao || 'asc') }]
+                : []),
+            String(cfg.tipoId || '')
+          ),
+          ordenarAttrId: String(cfg.ordenarAttrId || ''),
+          ordenarDirecao: String(cfg.ordenarDirecao || 'asc') === 'desc' ? 'desc' : 'asc',
+          createdAt: String(cfg.createdAt || ''),
+        }))
+        .filter((cfg) => cfg.id && cfg.nome && cfg.tipoId),
     };
   } catch {
     return fallback;

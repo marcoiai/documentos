@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'documentos_app_v2';
+const DOCUMENTO_API_URL = String((window as any).DOCUMENTO_API_URL || '').trim();
 
 const state: AppState = loadState();
 const ui = {
@@ -51,4 +52,43 @@ const ui = {
     documentoCampos: document.getElementById('documentoCampos'),
     documentoCancelBtn: document.getElementById('documentoCancelBtn'),
     documentosList: document.getElementById('documentosList'),
+
+  // relatorios
+  relatorioTipo: document.getElementById('relatorioTipo'),
+  relatorioConfigNome: document.getElementById('relatorioConfigNome'),
+  relatorioConfigSelect: document.getElementById('relatorioConfigSelect'),
+  relatorioSalvarConfigBtn: document.getElementById('relatorioSalvarConfigBtn'),
+  relatorioSelecionarConfigBtn: document.getElementById('relatorioSelecionarConfigBtn'),
+  relatorioExportConfigBtn: document.getElementById('relatorioExportConfigBtn'),
+  relatorioConfigDialog: document.getElementById('relatorioConfigDialog'),
+  relatorioConfigList: document.getElementById('relatorioConfigList'),
+  relatorioDialogCloseBtn: document.getElementById('relatorioDialogCloseBtn'),
+  relatorioAtributosWrap: document.getElementById('relatorioAtributosWrap'),
+  relatorioFiltroAtributo: document.getElementById('relatorioFiltroAtributo'),
+  relatorioFiltroOperador: document.getElementById('relatorioFiltroOperador'),
+  relatorioFiltroValor: document.getElementById('relatorioFiltroValor'),
+  relatorioOrdenarAtributo: document.getElementById('relatorioOrdenarAtributo'),
+  relatorioOrdenarDirecao: document.getElementById('relatorioOrdenarDirecao'),
+  relatorioOrdenarAdicionarBtn: document.getElementById('relatorioOrdenarAdicionarBtn'),
+  relatorioOrdenacaoLista: document.getElementById('relatorioOrdenacaoLista'),
+  relatorioLayoutEditor: document.getElementById('relatorioLayoutEditor'),
+  relatorioSalvarLayoutBtn: document.getElementById('relatorioSalvarLayoutBtn'),
+  relatorioGerarBtn: document.getElementById('relatorioGerarBtn'),
+  relatorioCsvBtn: document.getElementById('relatorioCsvBtn'),
+  relatorioPdfBtn: document.getElementById('relatorioPdfBtn'),
+  relatorioSomarNumeros: document.getElementById('relatorioSomarNumeros'),
+  relatorioResumo: document.getElementById('relatorioResumo'),
+  relatorioTabela: document.getElementById('relatorioTabela'),
+  relatorioTabelaHead: document.getElementById('relatorioTabelaHead'),
+  relatorioTabelaBody: document.getElementById('relatorioTabelaBody'),
+
+  // layout de relatorio (pagina separada)
+  relatorioLayoutTipo: document.getElementById('relatorioLayoutTipo'),
+  relatorioLayoutConfig: document.getElementById('relatorioLayoutConfig'),
+  relatorioLayoutSaveBtn: document.getElementById('relatorioLayoutSaveBtn'),
+  relatorioLayoutResetBtn: document.getElementById('relatorioLayoutResetBtn'),
+  relatorioLayoutCanvas: document.getElementById('relatorioLayoutCanvas'),
+  relatorioLayoutBlockCanvas: document.getElementById('relatorioLayoutBlockCanvas'),
+  relatorioLayoutFooterMode: document.getElementById('relatorioLayoutFooterMode'),
+  relatorioLayoutFooterAnchor: document.getElementById('relatorioLayoutFooterAnchor'),
 } as Record<string, any>;

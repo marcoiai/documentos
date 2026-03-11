@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'documentos_app_v2';
+const DOCUMENTO_API_URL = String(window.DOCUMENTO_API_URL || '').trim();
 const state = loadState();
 const ui = {
     // tipos
@@ -46,6 +47,43 @@ const ui = {
     documentoCampos: document.getElementById('documentoCampos'),
     documentoCancelBtn: document.getElementById('documentoCancelBtn'),
     documentosList: document.getElementById('documentosList'),
+    // relatorios
+    relatorioTipo: document.getElementById('relatorioTipo'),
+    relatorioConfigNome: document.getElementById('relatorioConfigNome'),
+    relatorioConfigSelect: document.getElementById('relatorioConfigSelect'),
+    relatorioSalvarConfigBtn: document.getElementById('relatorioSalvarConfigBtn'),
+    relatorioSelecionarConfigBtn: document.getElementById('relatorioSelecionarConfigBtn'),
+    relatorioExportConfigBtn: document.getElementById('relatorioExportConfigBtn'),
+    relatorioConfigDialog: document.getElementById('relatorioConfigDialog'),
+    relatorioConfigList: document.getElementById('relatorioConfigList'),
+    relatorioDialogCloseBtn: document.getElementById('relatorioDialogCloseBtn'),
+    relatorioAtributosWrap: document.getElementById('relatorioAtributosWrap'),
+    relatorioFiltroAtributo: document.getElementById('relatorioFiltroAtributo'),
+    relatorioFiltroOperador: document.getElementById('relatorioFiltroOperador'),
+    relatorioFiltroValor: document.getElementById('relatorioFiltroValor'),
+    relatorioOrdenarAtributo: document.getElementById('relatorioOrdenarAtributo'),
+    relatorioOrdenarDirecao: document.getElementById('relatorioOrdenarDirecao'),
+    relatorioOrdenarAdicionarBtn: document.getElementById('relatorioOrdenarAdicionarBtn'),
+    relatorioOrdenacaoLista: document.getElementById('relatorioOrdenacaoLista'),
+    relatorioLayoutEditor: document.getElementById('relatorioLayoutEditor'),
+    relatorioSalvarLayoutBtn: document.getElementById('relatorioSalvarLayoutBtn'),
+    relatorioGerarBtn: document.getElementById('relatorioGerarBtn'),
+    relatorioCsvBtn: document.getElementById('relatorioCsvBtn'),
+    relatorioPdfBtn: document.getElementById('relatorioPdfBtn'),
+    relatorioSomarNumeros: document.getElementById('relatorioSomarNumeros'),
+    relatorioResumo: document.getElementById('relatorioResumo'),
+    relatorioTabela: document.getElementById('relatorioTabela'),
+    relatorioTabelaHead: document.getElementById('relatorioTabelaHead'),
+    relatorioTabelaBody: document.getElementById('relatorioTabelaBody'),
+    // layout de relatorio (pagina separada)
+    relatorioLayoutTipo: document.getElementById('relatorioLayoutTipo'),
+    relatorioLayoutConfig: document.getElementById('relatorioLayoutConfig'),
+    relatorioLayoutSaveBtn: document.getElementById('relatorioLayoutSaveBtn'),
+    relatorioLayoutResetBtn: document.getElementById('relatorioLayoutResetBtn'),
+    relatorioLayoutCanvas: document.getElementById('relatorioLayoutCanvas'),
+    relatorioLayoutBlockCanvas: document.getElementById('relatorioLayoutBlockCanvas'),
+    relatorioLayoutFooterMode: document.getElementById('relatorioLayoutFooterMode'),
+    relatorioLayoutFooterAnchor: document.getElementById('relatorioLayoutFooterAnchor'),
 };
 Object.keys(ui).forEach((key) => {
     if (!ui[key])
@@ -55,6 +93,36 @@ let tempDocumentoValores = {};
 let tempDocumentoPdfFlags = {};
 let currentLayoutDrag = null;
 let focusedSecaoId = null;
+let relatorioCurrentLayout = [];
+let relatorioSavedLayout = [];
+let relatorioLayoutWorking = [];
+let relatorioLayoutWorkingConfigId = '';
+let relatorioLayoutDragAttrId = '';
+let relatorioSavedBlockOrder = [];
+let relatorioLayoutBlocksWorking = [];
+let relatorioSavedBlockVisibility = {};
+let relatorioLayoutBlockVisibilityWorking = {};
+let relatorioSavedFooterMode = 'fixed_bottom';
+let relatorioSavedFooterAnchor = 'tabela';
+let relatorioLayoutFooterModeWorking = 'fixed_bottom';
+let relatorioLayoutFooterAnchorWorking = 'tabela';
+let relatorioOrdenacaoWorking = [];
+let relatorioTotalAttrIdsWorking = [];
+let relatorioActiveConfigId = '';
+let relatorioLastResult = {
+    tipoId: '',
+    tipoNome: '',
+    columns: [],
+    colSpans: [],
+    blockOrder: [],
+    blockVisibility: {},
+    footerMode: 'fixed_bottom',
+    footerAnchor: 'tabela',
+    incluirCabecalho: false,
+    incluirRodape: false,
+    totalValues: [],
+    rows: [],
+};
 bindEvents();
 renderAll();
 initRouting();
@@ -96,6 +164,43 @@ function applyPlaceholderTemplate(text, ctx) {
     });
 }
 // @ts-nocheck
+function applyRelatorioConfig(config) {
+    if (!config)
+        return;
+    ui.relatorioTipo.value = config.tipoId;
+    renderRelatorioConfigSelectOptions(config.tipoId, config.id);
+    ui.relatorioConfigSelect.value = config.id || '';
+    relatorioSavedLayout = Array.isArray(config.reportLayout)
+        ? config.reportLayout.map((x) => ({ attrId: x.attrId, colSpan: clampColSpan(x.colSpan || 6) }))
+        : [];
+    relatorioSavedBlockOrder = normalizeRelatorioBlockOrder(config.reportBlockOrder);
+    relatorioSavedBlockVisibility = normalizeRelatorioBlockVisibility(config.reportBlockVisibility);
+    relatorioSavedFooterMode = config.reportFooterMode === 'after_block' ? 'after_block' : 'fixed_bottom';
+    relatorioSavedFooterAnchor = ['cabecalho', 'info_geracao', 'tabela'].includes(String(config.reportFooterAnchor || ''))
+        ? String(config.reportFooterAnchor)
+        : 'tabela';
+    relatorioOrdenacaoWorking = normalizeRelatorioOrdenacao(Array.isArray(config.ordenacao) && config.ordenacao.length
+        ? config.ordenacao
+        : (config.ordenarAttrId ? [{ attrId: config.ordenarAttrId, direcao: config.ordenarDirecao || 'asc' }] : []), config.tipoId);
+    relatorioTotalAttrIdsWorking = normalizeRelatorioTotalAttrIds(config.totalAttrIds, config.tipoId);
+    relatorioCurrentLayout = relatorioSavedLayout.map((x) => ({ ...x }));
+    renderRelatorioAtributosByTipo(config.tipoId, false);
+    const selected = new Set(Array.isArray(config.selectedAttrIds) ? config.selectedAttrIds : []);
+    ui.relatorioAtributosWrap
+        .querySelectorAll('input[data-relatorio-attr]')
+        .forEach((el) => {
+        el.checked = selected.has(el.dataset.relatorioAttr);
+    });
+    ui.relatorioFiltroAtributo.value = config.filtroAttrId || '';
+    ui.relatorioFiltroOperador.value = config.filtroOperador || 'contains';
+    ui.relatorioFiltroValor.value = config.filtroValor || '';
+    ui.relatorioSomarNumeros.checked = Boolean(config.somarNumericos);
+    ui.relatorioOrdenarAtributo.value = '';
+    ui.relatorioOrdenarDirecao.value = 'asc';
+    ui.relatorioConfigNome.value = config.nome || '';
+    refreshMaterializeUI();
+}
+// @ts-nocheck
 function bindEvents() {
     ui.tipoForm.addEventListener('submit', onTipoSubmit);
     ui.tipoCancelBtn.addEventListener('click', resetTipoForm);
@@ -118,6 +223,21 @@ function bindEvents() {
     ui.documentoTipo.addEventListener('change', () => clearFieldError(ui.documentoTipo));
     ui.documentoForm.addEventListener('input', () => refreshTemplatePreviews());
     ui.documentoForm.addEventListener('change', () => refreshTemplatePreviews());
+    ui.relatorioTipo.addEventListener('change', onRelatorioTipoChange);
+    ui.relatorioConfigSelect.addEventListener('change', onRelatorioConfigSelectChange);
+    ui.relatorioSalvarConfigBtn.addEventListener('click', saveRelatorioConfig);
+    ui.relatorioSelecionarConfigBtn.addEventListener('click', openRelatorioConfigDialog);
+    ui.relatorioExportConfigBtn.addEventListener('click', exportRelatorioConfigJson);
+    ui.relatorioDialogCloseBtn.addEventListener('click', closeRelatorioConfigDialog);
+    ui.relatorioSalvarLayoutBtn.addEventListener('click', saveRelatorioLayout);
+    ui.relatorioGerarBtn.addEventListener('click', generateRelatorio);
+    ui.relatorioCsvBtn.addEventListener('click', exportRelatorioCsv);
+    ui.relatorioPdfBtn.addEventListener('click', exportRelatorioPdf);
+    ui.relatorioOrdenarAdicionarBtn.addEventListener('click', onRelatorioAdicionarOrdenacao);
+    ui.relatorioLayoutTipo.addEventListener('change', onRelatorioLayoutTipoChange);
+    ui.relatorioLayoutConfig.addEventListener('change', onRelatorioLayoutConfigChange);
+    ui.relatorioLayoutSaveBtn.addEventListener('click', saveRelatorioLayoutEditorConfig);
+    ui.relatorioLayoutResetBtn.addEventListener('click', resetRelatorioLayoutEditorConfig);
     window.addEventListener('hashchange', syncTabFromRoute);
     document.querySelectorAll('.tabs .tab a').forEach((link) => {
         link.addEventListener('click', () => {
@@ -126,6 +246,37 @@ function bindEvents() {
                 history.replaceState(null, '', href);
         });
     });
+}
+// @ts-nocheck
+function buildDocumentoEstruturaPayload(savedDoc) {
+    const placeholderCtx = buildHeaderFooterPlaceholderContext(savedDoc.tipoId, savedDoc.valores, savedDoc.titulo);
+    const secoesEstruturadas = buildSectionGroupsForTipo(savedDoc.tipoId, { includeEmptySections: true }).map((group) => ({
+        key: group.key,
+        nome: group.nome,
+        atributos: group.items.map((item) => {
+            const attr = item.attr;
+            const raw = savedDoc.valores[attr.id];
+            return {
+                id: attr.id,
+                nome: attr.nome,
+                tipoCampo: attr.tipoCampo,
+                secaoId: attr.secaoId || '',
+                colSpan: item.colSpan,
+                pdfVisivel: savedDoc.pdfVisivel[attr.id] !== false,
+                valorBruto: raw ?? '',
+                valorRenderizado: resolveAttrValueForOutput(attr, raw, placeholderCtx),
+            };
+        }),
+    }));
+    return {
+        documento: savedDoc,
+        tipo: state.tipos.find((t) => t.id === savedDoc.tipoId) || null,
+        secoes: getSecoesForTipo(savedDoc.tipoId),
+        atributos: getAtributosByTipo(savedDoc.tipoId),
+        layout: state.layouts[savedDoc.tipoId] || [],
+        layoutSections: state.layoutSections[savedDoc.tipoId] || [],
+        estruturaPorSecao: secoesEstruturadas,
+    };
 }
 // @ts-nocheck
 function buildHeaderFooterPlaceholderContext(tipoId, valores, titulo = '') {
@@ -212,6 +363,18 @@ function buildInput(attr, id, value) {
     return input;
 }
 // @ts-nocheck
+function buildPdfPalette() {
+    return {
+        tealHeader: [0, 121, 107],
+        textMain: [38, 50, 56],
+        textMuted: [96, 125, 139],
+        textLight: [120, 144, 156],
+        cardBorder: [223, 229, 232],
+        cardBg: [255, 255, 255],
+        chipBg: [250, 252, 253],
+    };
+}
+// @ts-nocheck
 function buildPlaceholderContext(tipoId, valores, titulo = '') {
     const ctx = new Map();
     const attrs = getAtributosByTipo(tipoId);
@@ -267,6 +430,28 @@ function buildPreview(doc) {
     })
         .join(' | ');
     return truncate(preview, maxPreviewText);
+}
+// @ts-nocheck
+function buildRelatorioLayoutWorkingFromConfig(tipoId, configId) {
+    const config = (state.reportConfigs || []).find((c) => c.id === configId && c.tipoId === tipoId);
+    if (!config)
+        return [];
+    const attrs = getAtributosByTipo(tipoId);
+    const attrById = new Map(attrs.map((a) => [a.id, a]));
+    const selected = Array.isArray(config.selectedAttrIds) ? config.selectedAttrIds.filter((id) => attrById.has(id)) : [];
+    const base = Array.isArray(config.reportLayout)
+        ? config.reportLayout.filter((x) => selected.includes(x.attrId)).map((x) => ({
+            attrId: x.attrId,
+            colSpan: clampColSpan(x.colSpan || 6),
+        }))
+        : [];
+    const inBase = new Set(base.map((x) => x.attrId));
+    for (const id of selected) {
+        if (inBase.has(id))
+            continue;
+        base.push({ attrId: id, colSpan: 6 });
+    }
+    return base;
 }
 function buildSectionGroupsForTipo(tipoId, options = {}) {
     const { includeEmptySections = false } = options;
@@ -326,6 +511,14 @@ function clearFieldError(field) {
     if (messageEl)
         messageEl.remove();
 }
+// @ts-nocheck
+function closeRelatorioConfigDialog() {
+    const dialog = ui.relatorioConfigDialog;
+    if (!dialog || typeof dialog.close !== 'function')
+        return;
+    if (dialog.open)
+        dialog.close();
+}
 function collectDocumentoCampos() {
     const tipoId = ui.documentoTipo.value;
     if (!tipoId)
@@ -353,6 +546,43 @@ function collectDocumentoPdfFlags() {
     return flags;
 }
 // Render
+// @ts-nocheck
+function collectRelatorioConfig() {
+    const tipoId = ui.relatorioTipo.value;
+    const nome = String(ui.relatorioConfigNome.value || '').trim();
+    const selectedAttrIds = getSelectedRelatorioAttributeIds();
+    const filtroAttrId = ui.relatorioFiltroAtributo.value || '';
+    const filtroOperador = ui.relatorioFiltroOperador.value || 'contains';
+    const filtroValor = ui.relatorioFiltroValor.value || '';
+    const somarNumericos = Boolean(ui.relatorioSomarNumeros.checked);
+    const totalAttrIds = normalizeRelatorioTotalAttrIds(relatorioTotalAttrIdsWorking, tipoId);
+    const ordenacao = normalizeRelatorioOrdenacao(relatorioOrdenacaoWorking, tipoId);
+    const ordenarAttrId = ordenacao[0]?.attrId || '';
+    const ordenarDirecao = ordenacao[0]?.direcao || 'asc';
+    return {
+        id: '',
+        nome,
+        tipoId,
+        selectedAttrIds,
+        reportLayout: (relatorioSavedLayout || []).map((x) => ({
+            attrId: x.attrId,
+            colSpan: clampColSpan(x.colSpan || 6),
+        })),
+        reportBlockOrder: normalizeRelatorioBlockOrder(relatorioSavedBlockOrder),
+        reportBlockVisibility: normalizeRelatorioBlockVisibility(relatorioSavedBlockVisibility),
+        reportFooterMode: relatorioSavedFooterMode,
+        reportFooterAnchor: relatorioSavedFooterAnchor,
+        filtroAttrId,
+        filtroOperador,
+        filtroValor,
+        somarNumericos,
+        totalAttrIds,
+        ordenacao,
+        ordenarAttrId,
+        ordenarDirecao,
+        createdAt: new Date().toISOString(),
+    };
+}
 // @ts-nocheck
 function createUiStub() {
     const stub = {
@@ -393,6 +623,10 @@ function defaultColSpanForAttr(attr) {
     if (attr.tipoCampo === 'numero')
         return 4;
     return 6;
+}
+// @ts-nocheck
+function defaultRelatorioBlockOrder() {
+    return ['cabecalho', 'info_geracao', 'tabela', 'rodape'];
 }
 // @ts-nocheck
 function deleteAtributo(attrId) {
@@ -500,6 +734,13 @@ function editTipo(tipoId) {
     refreshMaterializeUI();
 }
 // @ts-nocheck
+function escapeCsvValue(value) {
+    const text = String(value ?? '');
+    if (!/[";,\n]/.test(text))
+        return text;
+    return `"${text.replace(/"/g, '""')}"`;
+}
+// @ts-nocheck
 function escapeHtml(str) {
     return String(str)
         .replace(/&/g, '&amp;')
@@ -532,16 +773,8 @@ function exportDocumentoPdf(docId) {
     const pageWidth = pdf.internal.pageSize.getWidth();
     const margin = 40;
     const contentWidth = pageWidth - margin * 2;
+    const palette = buildPdfPalette();
     let y = margin;
-    const palette = {
-        tealHeader: [0, 121, 107], // approx Materialize teal darken-2
-        textMain: [38, 50, 56],
-        textMuted: [96, 125, 139],
-        textLight: [120, 144, 156],
-        cardBorder: [223, 229, 232], // #dfe5e8
-        cardBg: [255, 255, 255],
-        chipBg: [250, 252, 253], // #fafcfd
-    };
     const ensureSpace = (required = 20) => {
         if (y + required <= pageHeight - margin)
             return;
@@ -557,7 +790,6 @@ function exportDocumentoPdf(docId) {
         pdf.text(lines, margin, y);
         y += lines.length * gap;
     };
-    // Header stripe uses Tipo cabecalho (with placeholders) as its content.
     const headerContent = tipoCabecalho
         ? `${tipoNome(documento.tipoId)}\n${tipoCabecalho}`
         : tipoNome(documento.tipoId);
@@ -575,206 +807,335 @@ function exportDocumentoPdf(docId) {
     pdf.setTextColor(...palette.textMain);
     addText(`Titulo: ${documento.titulo}`, { size: 12, bold: true });
     y += 8;
-    const groups = buildSectionGroupsForTipo(documento.tipoId, { includeEmptySections: true }).filter((group) => group.key !== '__sem_secao__' || group.items.length > 0);
-    const signatureAttrs = groups
-        .flatMap((group) => group.items)
-        .map((item) => item.attr)
-        .filter((attr) => attr.tipoCampo === 'assinatura' && pdfVisivel[attr.id] !== false);
-    if (groups.length === 0) {
-        addText('Sem secoes/atributos configurados para este tipo.', { size: 11 });
+    const sectionResult = renderPdfSectionTables({
+        pdf,
+        documento,
+        pdfVisivel,
+        placeholderCtx,
+        palette,
+        margin,
+        contentWidth,
+        pageHeight,
+        startY: y,
+    });
+    y = sectionResult.y;
+    if (sectionResult.signatureAttrs.length > 0) {
+        y = renderPdfSignatureBlocks({
+            pdf,
+            documento,
+            signatureAttrs: sectionResult.signatureAttrs,
+            tipoRodape,
+            palette,
+            margin,
+            contentWidth,
+            pageHeight,
+            pageWidth,
+            startY: y,
+        });
     }
-    else {
-        const semSecaoKey = '__sem_secao__';
-        const sectionHeaderHeight = 22;
-        const sectionPadding = 10;
-        const tableHeaderHeight = 18;
-        const rowLineHeight = 11;
-        const rowPaddingY = 5;
-        const col1Ratio = 0.36;
-        const sectionInfoGap = 6;
-        const sectionInfoLineHeight = 10.5;
-        const sectionInfoPadY = 5;
-        for (const group of groups) {
-            const secao = group.key === semSecaoKey ? null : state.secoes.find((s) => s.id === group.key);
-            const secaoCabecalho = resolveTemplateTextForOutput(secao?.cabecalho || '', placeholderCtx).trim();
-            const secaoRodape = resolveTemplateTextForOutput(secao?.rodape || '', placeholderCtx).trim();
-            const rows = group.items
-                .filter((item) => pdfVisivel[item.attr.id] !== false && item.attr.tipoCampo !== 'assinatura')
-                .map((item) => {
-                const attr = item.attr;
-                const raw = documento.valores[attr.id];
-                const value = resolveAttrValueForOutput(attr, raw, placeholderCtx);
-                const hideFieldName = attr.tipoCampo === 'textarea' || attr.tipoCampo === 'textarea_template';
-                const campo = hideFieldName ? '' : String(attr.nome);
-                return { campo, valor: String(value) };
-            });
-            if (rows.length === 0)
-                continue;
-            const tableX = margin + (group.key === semSecaoKey ? 0 : sectionPadding);
-            const tableWidth = contentWidth - (group.key === semSecaoKey ? 0 : sectionPadding * 2);
-            const col1Width = tableWidth * col1Ratio;
-            const col2Width = tableWidth - col1Width;
-            const measuredRows = rows.map((row) => {
-                const campoLines = pdf.splitTextToSize(row.campo, col1Width - 8);
-                const valorLines = pdf.splitTextToSize(row.valor, col2Width - 8);
-                const height = Math.max(campoLines.length, valorLines.length) * rowLineHeight + rowPaddingY * 2;
-                return { ...row, campoLines, valorLines, height };
-            });
-            const sectionInfoWidth = tableWidth - 8;
-            const headerLines = group.key !== semSecaoKey && secaoCabecalho
-                ? pdf.splitTextToSize(secaoCabecalho, sectionInfoWidth)
-                : [];
-            const footerLines = group.key !== semSecaoKey && secaoRodape
-                ? pdf.splitTextToSize(`Rodape: ${secaoRodape}`, sectionInfoWidth)
-                : [];
-            const headerInfoHeight = headerLines.length > 0 ? headerLines.length * sectionInfoLineHeight + sectionInfoPadY * 2 : 0;
-            const footerInfoHeight = footerLines.length > 0 ? footerLines.length * sectionInfoLineHeight + sectionInfoPadY * 2 : 0;
-            const headerInfoTotal = headerInfoHeight > 0 ? headerInfoHeight + sectionInfoGap : 0;
-            const footerInfoTotal = footerInfoHeight > 0 ? sectionInfoGap + footerInfoHeight : 0;
-            const tableBodyHeight = measuredRows.reduce((sum, r) => sum + r.height, 0);
-            const tableHeight = tableHeaderHeight + tableBodyHeight;
-            const titleHeight = group.key === semSecaoKey ? 0 : sectionHeaderHeight;
-            const wrapperHeight = group.key === semSecaoKey
-                ? tableHeight
-                : sectionHeaderHeight + sectionPadding + headerInfoTotal + tableHeight + footerInfoTotal + sectionPadding;
-            ensureSpace(wrapperHeight + 10);
-            let cursorY = y;
-            if (group.key !== semSecaoKey) {
-                pdf.setDrawColor(...palette.cardBorder);
-                pdf.setFillColor(...palette.cardBg);
-                pdf.roundedRect(margin, y, contentWidth, wrapperHeight, 4, 4, 'FD');
-                pdf.setFillColor(...palette.chipBg);
-                pdf.roundedRect(margin, y, contentWidth, sectionHeaderHeight, 4, 4, 'F');
-                pdf.setFont('helvetica', 'bold');
-                pdf.setFontSize(11);
-                pdf.setTextColor(...palette.textMain);
-                pdf.text(group.nome, margin + sectionPadding, y + 15);
-                cursorY = y + sectionHeaderHeight + sectionPadding;
-                if (headerInfoHeight > 0) {
-                    pdf.setDrawColor(...palette.cardBorder);
-                    pdf.setFillColor(...palette.chipBg);
-                    pdf.rect(tableX, cursorY, tableWidth, headerInfoHeight, 'FD');
-                    pdf.setFont('helvetica', 'normal');
-                    pdf.setFontSize(9.2);
-                    pdf.setTextColor(...palette.textMuted);
-                    let headerY = cursorY + sectionInfoPadY + 7;
-                    for (const line of headerLines) {
-                        pdf.text(line, tableX + 4, headerY);
-                        headerY += sectionInfoLineHeight;
-                    }
-                    cursorY += headerInfoHeight + sectionInfoGap;
-                }
-            }
-            else {
-                cursorY = y;
-            }
-            // Header da tabela
-            pdf.setDrawColor(...palette.cardBorder);
-            pdf.setFillColor(...palette.chipBg);
-            pdf.rect(tableX, cursorY, tableWidth, tableHeaderHeight, 'FD');
-            pdf.line(tableX + col1Width, cursorY, tableX + col1Width, cursorY + tableHeaderHeight);
-            let rowY = cursorY + tableHeaderHeight;
-            pdf.setFont('helvetica', 'normal');
-            pdf.setFontSize(9.5);
-            pdf.setTextColor(...palette.textMuted);
-            for (const row of measuredRows) {
-                pdf.rect(tableX, rowY, tableWidth, row.height);
-                pdf.line(tableX + col1Width, rowY, tableX + col1Width, rowY + row.height);
-                let cY = rowY + rowPaddingY + 8;
-                for (const line of row.campoLines) {
-                    pdf.text(line, tableX + 4, cY);
-                    cY += rowLineHeight;
-                }
-                let vY = rowY + rowPaddingY + 8;
-                for (const line of row.valorLines) {
-                    pdf.text(line, tableX + col1Width + 4, vY);
-                    vY += rowLineHeight;
-                }
-                rowY += row.height;
-            }
-            if (footerInfoHeight > 0) {
-                const footerY = rowY + sectionInfoGap;
-                pdf.setDrawColor(...palette.cardBorder);
-                pdf.setFillColor(...palette.chipBg);
-                pdf.rect(tableX, footerY, tableWidth, footerInfoHeight, 'FD');
-                pdf.setFont('helvetica', 'normal');
-                pdf.setFontSize(9.2);
-                pdf.setTextColor(...palette.textMuted);
-                let footerLineY = footerY + sectionInfoPadY + 7;
-                for (const line of footerLines) {
-                    pdf.text(line, tableX + 4, footerLineY);
-                    footerLineY += sectionInfoLineHeight;
-                }
-            }
-            y += wrapperHeight + 10;
-        }
-    }
-    // Signature blocks centered and close to the document end.
-    if (signatureAttrs.length > 0) {
-        const signatureBoxWidth = Math.min(420, contentWidth * 0.86);
-        const signatureBoxHeight = 92;
-        const signatureInnerPadding = 12;
-        const signatureGap = 26;
-        const signatureCaptionGap = 15;
-        const signatureNameFont = 10;
-        const blockHeight = signatureBoxHeight + signatureCaptionGap + 8;
-        const totalHeight = signatureAttrs.length * blockHeight + Math.max(0, signatureAttrs.length - 1) * signatureGap;
-        const bottomOffset = 8;
-        const footerGap = 14;
-        const footerReserved = tipoRodape
-            ? Math.max(1, pdf.splitTextToSize(String(tipoRodape), contentWidth).length) * footerGap + 10
-            : 0;
-        const lastAvailableY = pageHeight - bottomOffset - footerReserved;
-        if (y + totalHeight > lastAvailableY) {
-            pdf.addPage();
-            y = margin;
-        }
-        const startY = Math.max(y + 10, lastAvailableY - totalHeight);
-        const centerX = pageWidth / 2;
-        pdf.setDrawColor(...palette.textMuted);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(signatureNameFont);
-        pdf.setTextColor(...palette.textMuted);
-        for (let i = 0; i < signatureAttrs.length; i += 1) {
-            const attr = signatureAttrs[i];
-            const rawName = documento.valores[attr.id];
-            const name = rawName ? String(rawName) : '';
-            const blockTop = startY + i * (blockHeight + signatureGap);
-            const boxX = centerX - signatureBoxWidth / 2;
-            const lineY = blockTop + signatureBoxHeight - signatureInnerPadding;
-            const x1 = boxX + signatureInnerPadding;
-            const x2 = boxX + signatureBoxWidth - signatureInnerPadding;
-            // Empty signature area for hand signing.
-            pdf.rect(boxX, blockTop, signatureBoxWidth, signatureBoxHeight);
-            pdf.line(x1, lineY, x2, lineY);
-            const label = name.trim() ? `Assinatura: ${name}` : 'Assinatura';
-            const labelWidth = pdf.getTextWidth(label);
-            pdf.text(label, centerX - labelWidth / 2, lineY + signatureCaptionGap);
-        }
-        y = startY + totalHeight + 6;
-    }
-    if (tipoRodape) {
-        const footerSize = 10.5;
-        const footerGap = 14;
-        const bottomOffset = 8;
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(footerSize);
-        pdf.setTextColor(...palette.textMuted);
-        const footerLines = pdf.splitTextToSize(String(tipoRodape), contentWidth);
-        let footerStartY = pageHeight - bottomOffset - (Math.max(footerLines.length, 1) - 1) * footerGap;
-        if (y + 8 > footerStartY) {
-            pdf.addPage();
-            y = margin;
-            footerStartY = pageHeight - bottomOffset - (Math.max(footerLines.length, 1) - 1) * footerGap;
-        }
-        pdf.text(footerLines, margin, footerStartY);
-    }
+    y = renderPdfTipoFooter({
+        pdf,
+        tipoRodape,
+        palette,
+        margin,
+        contentWidth,
+        pageHeight,
+        currentY: y,
+    });
     const safeTitle = String(documento.titulo || 'documento')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-zA-Z0-9-_]+/g, '_')
         .replace(/^_+|_+$/g, '');
     pdf.save(`${safeTitle || 'documento'}.pdf`);
+}
+// @ts-nocheck
+function exportRelatorioConfigJson() {
+    const cfg = collectRelatorioConfig();
+    if (!cfg.tipoId) {
+        notify('Selecione um tipo para exportar a configuracao.');
+        return;
+    }
+    if (!cfg.nome)
+        cfg.nome = `config_${tipoNome(cfg.tipoId)}`;
+    const payload = {
+        exportedAt: new Date().toISOString(),
+        config: cfg,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${String(cfg.nome).replace(/\s+/g, '_').toLowerCase()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+// @ts-nocheck
+function exportRelatorioCsv() {
+    const { columns, rows, tipoNome, totalValues } = relatorioLastResult;
+    if (!columns.length) {
+        notify('Gere o relatorio antes de exportar CSV.');
+        return;
+    }
+    const hasTotal = Array.isArray(totalValues) && totalValues.some((v) => String(v || '').trim() !== '');
+    const totalRow = hasTotal
+        ? columns.map((_, idx) => {
+            const value = String(totalValues[idx] || '');
+            const labelIndex = columns.findIndex((__, i) => String(totalValues[i] || '').trim() === '');
+            return labelIndex === idx ? 'Total' : value;
+        })
+        : null;
+    const lines = [
+        columns.map((col) => escapeCsvValue(col)).join(';'),
+        ...rows.map((row) => row.map((value) => escapeCsvValue(value)).join(';')),
+        ...(totalRow ? [totalRow.map((value) => escapeCsvValue(value)).join(';')] : []),
+    ];
+    const csv = lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `relatorio_${String(tipoNome || 'documentos').replace(/\s+/g, '_').toLowerCase()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+// @ts-nocheck
+function exportRelatorioPdf() {
+    const { tipoId, columns, rows, tipoNome, colSpans, blockOrder, blockVisibility, footerMode, footerAnchor, totalValues } = relatorioLastResult;
+    if (!columns.length) {
+        notify('Gere o relatorio antes de exportar PDF.');
+        return;
+    }
+    const lib = window.jspdf;
+    if (!lib || !lib.jsPDF) {
+        notify('Biblioteca de PDF nao carregada.');
+        return;
+    }
+    const pdf = new lib.jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 36;
+    const tableWidth = pageWidth - margin * 2;
+    const resolvedTipoId = ui.relatorioTipo.value || tipoId;
+    const tipo = state.tipos.find((t) => t.id === resolvedTipoId) || null;
+    const headerFooterCtx = buildHeaderFooterPlaceholderContext(resolvedTipoId, {}, tipoNome || '');
+    const tipoCabecalho = resolveTemplateTextForOutput(String(tipo?.cabecalho || ''), headerFooterCtx).trim();
+    const tipoRodape = resolveTemplateTextForOutput(String(tipo?.rodape || ''), headerFooterCtx).trim();
+    const resolvedBlockOrder = normalizeRelatorioBlockOrder(blockOrder);
+    const resolvedBlockVisibility = normalizeRelatorioBlockVisibility(blockVisibility);
+    const resolvedFooterMode = footerMode === 'after_block' ? 'after_block' : 'fixed_bottom';
+    const resolvedFooterAnchor = ['cabecalho', 'info_geracao', 'tabela'].includes(String(footerAnchor || ''))
+        ? String(footerAnchor)
+        : 'tabela';
+    let y = margin;
+    const pageBottomLimit = pageHeight - margin;
+    const addPageIfNeeded = (requiredHeight) => {
+        if (y + requiredHeight <= pageBottomLimit)
+            return;
+        pdf.addPage();
+        y = margin;
+    };
+    const footerSize = 9.5;
+    const footerGap = 11;
+    const bottomOffset = 8;
+    const renderFooterFlow = () => {
+        if (!tipoRodape || resolvedBlockVisibility.rodape === false)
+            return false;
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(footerSize);
+        pdf.setTextColor(120, 144, 156);
+        const footerLines = pdf.splitTextToSize(tipoRodape, tableWidth);
+        addPageIfNeeded(Math.max(14, footerLines.length * footerGap) + 6);
+        pdf.text(footerLines, margin, y);
+        y += Math.max(14, footerLines.length * footerGap) + 4;
+        return true;
+    };
+    const renderFooterBottom = () => {
+        if (!tipoRodape || resolvedBlockVisibility.rodape === false)
+            return;
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(footerSize);
+        pdf.setTextColor(90, 110, 120);
+        const footerLines = pdf.splitTextToSize(tipoRodape, tableWidth);
+        const safeBottomBaseline = pageHeight - Math.max(bottomOffset, 14);
+        let footerStartY = safeBottomBaseline - (Math.max(footerLines.length, 1) - 1) * footerGap;
+        if (y + 10 > footerStartY) {
+            pdf.addPage();
+            y = margin;
+            footerStartY = safeBottomBaseline - (Math.max(footerLines.length, 1) - 1) * footerGap;
+        }
+        pdf.text(footerLines, margin, footerStartY);
+    };
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(14);
+    pdf.setTextColor(38, 50, 56);
+    pdf.text(`Relatorio - ${tipoNome || 'Documentos'}`, margin, y);
+    y += 18;
+    const colCount = Math.max(1, columns.length);
+    const spans = Array.isArray(colSpans) && colSpans.length === colCount
+        ? colSpans.map((x) => Math.max(1, Number(x || 1)))
+        : columns.map(() => 1);
+    const totalSpan = spans.reduce((sum, x) => sum + x, 0);
+    const colWidths = spans.map((s) => (s / totalSpan) * tableWidth);
+    const colStarts = [];
+    let accX = margin;
+    for (let i = 0; i < colWidths.length; i += 1) {
+        colStarts.push(accX);
+        accX += colWidths[i];
+    }
+    const headerHeight = 20;
+    const lineHeight = 10;
+    const rowPadY = 5;
+    const renderTableHeader = () => {
+        addPageIfNeeded(headerHeight + 8);
+        pdf.setDrawColor(223, 229, 232);
+        pdf.setFillColor(250, 252, 253);
+        pdf.rect(margin, y, tableWidth, headerHeight, 'FD');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(9);
+        pdf.setTextColor(38, 50, 56);
+        for (let i = 0; i < colCount; i += 1) {
+            const x = colStarts[i];
+            const width = colWidths[i];
+            if (i > 0)
+                pdf.line(x, y, x, y + headerHeight);
+            const text = String(columns[i] || '');
+            const lines = pdf.splitTextToSize(text, Math.max(20, width - 8));
+            pdf.text(lines[0] || '', x + 4, y + 13);
+        }
+        y += headerHeight;
+    };
+    let footerFlowRendered = false;
+    for (const blockKey of resolvedBlockOrder) {
+        if (blockKey === 'rodape')
+            continue;
+        if (blockKey === 'cabecalho') {
+            if (resolvedBlockVisibility[blockKey] === false)
+                continue;
+            if (!tipoCabecalho)
+                continue;
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(10.5);
+            pdf.setTextColor(69, 90, 100);
+            const headerLines = pdf.splitTextToSize(tipoCabecalho, tableWidth);
+            addPageIfNeeded(Math.max(14, headerLines.length * 12) + 8);
+            pdf.text(headerLines, margin, y);
+            y += Math.max(14, headerLines.length * 12) + 6;
+            if (!footerFlowRendered && resolvedFooterMode === 'after_block' && resolvedFooterAnchor === blockKey) {
+                footerFlowRendered = renderFooterFlow();
+            }
+            continue;
+        }
+        if (blockKey === 'info_geracao') {
+            if (resolvedBlockVisibility[blockKey] === false)
+                continue;
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(10);
+            pdf.setTextColor(96, 125, 139);
+            const info = `Gerado em: ${formatCurrentDateBr()}  |  Registros: ${rows.length}`;
+            addPageIfNeeded(18);
+            pdf.text(info, margin, y);
+            y += 16;
+            if (!footerFlowRendered && resolvedFooterMode === 'after_block' && resolvedFooterAnchor === blockKey) {
+                footerFlowRendered = renderFooterFlow();
+            }
+            continue;
+        }
+        if (blockKey === 'tabela') {
+            if (resolvedBlockVisibility[blockKey] === false)
+                continue;
+            renderTableHeader();
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(8.8);
+            pdf.setTextColor(69, 90, 100);
+            for (const row of rows) {
+                const cellLines = [];
+                let maxLines = 1;
+                for (let i = 0; i < colCount; i += 1) {
+                    const text = String(row[i] ?? '');
+                    const lines = pdf.splitTextToSize(text, Math.max(20, colWidths[i] - 8));
+                    cellLines.push(lines);
+                    if (lines.length > maxLines)
+                        maxLines = lines.length;
+                }
+                const rowHeight = maxLines * lineHeight + rowPadY * 2;
+                addPageIfNeeded(rowHeight + 2);
+                if (y === margin)
+                    renderTableHeader();
+                pdf.setDrawColor(223, 229, 232);
+                pdf.rect(margin, y, tableWidth, rowHeight);
+                for (let i = 0; i < colCount; i += 1) {
+                    const x = colStarts[i];
+                    if (i > 0)
+                        pdf.line(x, y, x, y + rowHeight);
+                    const lines = cellLines[i];
+                    let ty = y + rowPadY + 8;
+                    for (const line of lines) {
+                        pdf.text(line, x + 4, ty);
+                        ty += lineHeight;
+                    }
+                }
+                y += rowHeight;
+            }
+            const hasTotal = Array.isArray(totalValues) && totalValues.some((v) => String(v || '').trim() !== '');
+            if (hasTotal) {
+                const labelIndex = columns.findIndex((_, idx) => String(totalValues[idx] || '').trim() === '');
+                const totalRow = columns.map((_, idx) => (labelIndex === idx ? 'Total' : String(totalValues[idx] || '')));
+                const totalCellLines = [];
+                let totalMaxLines = 1;
+                for (let i = 0; i < colCount; i += 1) {
+                    const text = String(totalRow[i] ?? '');
+                    const lines = pdf.splitTextToSize(text, Math.max(20, colWidths[i] - 8));
+                    totalCellLines.push(lines);
+                    if (lines.length > totalMaxLines)
+                        totalMaxLines = lines.length;
+                }
+                const totalRowHeight = totalMaxLines * lineHeight + rowPadY * 2;
+                addPageIfNeeded(totalRowHeight + 2);
+                if (y === margin)
+                    renderTableHeader();
+                pdf.setDrawColor(223, 229, 232);
+                pdf.setFillColor(244, 248, 250);
+                pdf.rect(margin, y, tableWidth, totalRowHeight, 'FD');
+                pdf.setFont('helvetica', 'bold');
+                for (let i = 0; i < colCount; i += 1) {
+                    const x = colStarts[i];
+                    if (i > 0)
+                        pdf.line(x, y, x, y + totalRowHeight);
+                    const lines = totalCellLines[i];
+                    let ty = y + rowPadY + 8;
+                    for (const line of lines) {
+                        pdf.text(line, x + 4, ty);
+                        ty += lineHeight;
+                    }
+                }
+                pdf.setFont('helvetica', 'normal');
+                y += totalRowHeight;
+            }
+            y += 6;
+            if (!footerFlowRendered && resolvedFooterMode === 'after_block' && resolvedFooterAnchor === blockKey) {
+                footerFlowRendered = renderFooterFlow();
+            }
+            continue;
+        }
+    }
+    if (resolvedFooterMode === 'after_block' && !footerFlowRendered) {
+        renderFooterFlow();
+    }
+    if (resolvedFooterMode === 'fixed_bottom') {
+        renderFooterBottom();
+    }
+    const safeName = String(tipoNome || 'documentos')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9-_]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .toLowerCase();
+    pdf.save(`relatorio_${safeName || 'documentos'}.pdf`);
 }
 // @ts-nocheck
 function extractMaskPayload(value, mask) {
@@ -797,6 +1158,203 @@ function formatCurrentDateBr() {
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const yyyy = String(now.getFullYear());
     return `${dd}/${mm}/${yyyy}`;
+}
+// @ts-nocheck
+function generateRelatorio() {
+    const tipoId = ui.relatorioTipo.value;
+    if (!tipoId) {
+        notify('Selecione um tipo para gerar o relatorio.');
+        return;
+    }
+    const selectedAttrIds = getSelectedRelatorioAttributeIds();
+    if (selectedAttrIds.length === 0) {
+        notify('Selecione pelo menos um atributo para o relatorio.');
+        return;
+    }
+    const cfgId = String(ui.relatorioConfigSelect?.value || '').trim();
+    const cfgNome = String(ui.relatorioConfigNome.value || '').trim().toLowerCase();
+    const matchedConfig = cfgId
+        ? (state.reportConfigs || []).find((c) => c.id === cfgId && c.tipoId === tipoId)
+        : (cfgNome
+            ? (state.reportConfigs || []).find((c) => c.tipoId === tipoId && String(c.nome || '').trim().toLowerCase() === cfgNome)
+            : null);
+    const allAttrsById = new Map(getAtributosByTipo(tipoId).map((a) => [a.id, a]));
+    const defaultAttrs = selectedAttrIds
+        .map((id) => allAttrsById.get(id))
+        .filter(Boolean);
+    const selectedSet = new Set(selectedAttrIds);
+    const layoutSource = (Array.isArray(matchedConfig?.reportLayout) && matchedConfig.reportLayout.length)
+        ? matchedConfig.reportLayout
+        : [];
+    const savedLayoutFiltered = (layoutSource || []).filter((x) => selectedSet.has(x.attrId));
+    const useSavedLayout = savedLayoutFiltered.length > 0;
+    const ordered = useSavedLayout ? getRelatorioOrderedAttrs(tipoId, savedLayoutFiltered) : [];
+    let attrs = defaultAttrs;
+    let orderedWithFallback = ordered;
+    if (useSavedLayout) {
+        const inLayout = new Set(ordered.map((x) => x.attr.id));
+        const remainder = defaultAttrs
+            .filter((a) => !inLayout.has(a.id))
+            .map((attr) => ({ attr, colSpan: 6 }));
+        orderedWithFallback = [...ordered, ...remainder];
+        attrs = orderedWithFallback.map((x) => x.attr);
+    }
+    const attrById = new Map(attrs.map((a) => [a.id, a]));
+    const filtroAttrId = ui.relatorioFiltroAtributo.value;
+    const filtroOperador = ui.relatorioFiltroOperador.value || 'contains';
+    const filtroValor = ui.relatorioFiltroValor.value || '';
+    const somarNumericos = Boolean(ui.relatorioSomarNumeros.checked || matchedConfig?.somarNumericos);
+    const totalAttrIdsFromConfig = normalizeRelatorioTotalAttrIds(matchedConfig?.totalAttrIds, tipoId);
+    const totalAttrIdsEffective = normalizeRelatorioTotalAttrIds(relatorioTotalAttrIdsWorking.length ? relatorioTotalAttrIdsWorking : totalAttrIdsFromConfig, tipoId);
+    const totalAttrSet = new Set(totalAttrIdsEffective);
+    const sumAllNumericFallback = totalAttrSet.size === 0;
+    const effectiveOrdenacao = normalizeRelatorioOrdenacao(relatorioOrdenacaoWorking.length
+        ? relatorioOrdenacaoWorking
+        : (Array.isArray(matchedConfig?.ordenacao) && matchedConfig.ordenacao.length
+            ? matchedConfig.ordenacao
+            : (matchedConfig?.ordenarAttrId
+                ? [{ attrId: matchedConfig.ordenarAttrId, direcao: matchedConfig.ordenarDirecao || 'asc' }]
+                : [])), tipoId);
+    const columns = attrs.map((a) => a.nome);
+    const colSpans = useSavedLayout
+        ? orderedWithFallback.map((x) => clampColSpan(x.colSpan || 6))
+        : attrs.map(() => 6);
+    const docs = state.documentos.filter((d) => d.tipoId === tipoId);
+    const filteredDocs = [];
+    const rows = [];
+    const numeroTotals = attrs.map((attr) => {
+        if (attr.tipoCampo !== 'numero')
+            return null;
+        if (sumAllNumericFallback)
+            return 0;
+        return totalAttrSet.has(attr.id) ? 0 : null;
+    });
+    const parseSortableValue = (attr, value) => {
+        const raw = String(value ?? '').trim();
+        if (!raw)
+            return { empty: true, kind: 'text', value: '' };
+        if (attr?.tipoCampo === 'numero') {
+            const normalized = raw.replace(/\./g, '').replace(',', '.');
+            const n = Number(normalized);
+            if (!Number.isNaN(n) && Number.isFinite(n))
+                return { empty: false, kind: 'number', value: n };
+        }
+        if (attr?.tipoCampo === 'data') {
+            const br = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (br) {
+                const iso = `${br[3]}-${br[2]}-${br[1]}T00:00:00`;
+                const ms = Date.parse(iso);
+                if (!Number.isNaN(ms))
+                    return { empty: false, kind: 'date', value: ms };
+            }
+            const ms = Date.parse(raw);
+            if (!Number.isNaN(ms))
+                return { empty: false, kind: 'date', value: ms };
+        }
+        return { empty: false, kind: 'text', value: raw.toLocaleLowerCase() };
+    };
+    const parseNumericValue = (value) => {
+        const raw = String(value ?? '').trim();
+        if (!raw)
+            return null;
+        const compact = raw.replace(/\s/g, '');
+        const hasDot = compact.includes('.');
+        const hasComma = compact.includes(',');
+        let normalized = compact;
+        if (hasDot && hasComma) {
+            const lastDot = compact.lastIndexOf('.');
+            const lastComma = compact.lastIndexOf(',');
+            const decimalSep = lastDot > lastComma ? '.' : ',';
+            const thousandSep = decimalSep === '.' ? ',' : '.';
+            normalized = compact.split(thousandSep).join('');
+            if (decimalSep === ',')
+                normalized = normalized.replace(',', '.');
+        }
+        else if (hasComma) {
+            normalized = compact.replace(/\./g, '').replace(',', '.');
+        }
+        else {
+            normalized = compact.replace(/,/g, '');
+        }
+        const n = Number(normalized);
+        if (Number.isNaN(n) || !Number.isFinite(n))
+            return null;
+        return n;
+    };
+    for (const doc of docs) {
+        const ctx = buildPlaceholderContext(tipoId, doc.valores, doc.titulo);
+        if (filtroAttrId) {
+            const filtroAttr = attrById.get(filtroAttrId) || state.atributos.find((a) => a.id === filtroAttrId);
+            if (filtroAttr) {
+                const filtroRaw = doc.valores[filtroAttr.id];
+                const filtroResolved = resolveAttrValueForOutput(filtroAttr, filtroRaw, ctx);
+                if (!matchesRelatorioFilter(filtroResolved, filtroOperador, filtroValor))
+                    continue;
+            }
+        }
+        filteredDocs.push({ doc, ctx });
+    }
+    if (effectiveOrdenacao.length) {
+        filteredDocs.sort((a, b) => {
+            for (const ord of effectiveOrdenacao) {
+                const sortAttr = allAttrsById.get(ord.attrId) || state.atributos.find((x) => x.id === ord.attrId);
+                const av = resolveAttrValueForOutput(sortAttr, a.doc.valores[ord.attrId], a.ctx);
+                const bv = resolveAttrValueForOutput(sortAttr, b.doc.valores[ord.attrId], b.ctx);
+                const pa = parseSortableValue(sortAttr, av);
+                const pb = parseSortableValue(sortAttr, bv);
+                if (pa.empty && pb.empty)
+                    continue;
+                if (pa.empty)
+                    return 1;
+                if (pb.empty)
+                    return -1;
+                let result = 0;
+                if ((pa.kind === 'number' || pa.kind === 'date') && pa.kind === pb.kind) {
+                    result = Number(pa.value) - Number(pb.value);
+                }
+                else {
+                    result = String(pa.value).localeCompare(String(pb.value), 'pt-BR', { sensitivity: 'base', numeric: true });
+                }
+                if (result !== 0)
+                    return ord.direcao === 'desc' ? -result : result;
+            }
+            return 0;
+        });
+    }
+    for (const { doc, ctx } of filteredDocs) {
+        const row = attrs.map((attr, idx) => {
+            const value = String(resolveAttrValueForOutput(attr, doc.valores[attr.id], ctx));
+            if (somarNumericos && numeroTotals[idx] !== null) {
+                const parsed = parseNumericValue(value);
+                if (parsed !== null)
+                    numeroTotals[idx] += parsed;
+            }
+            return value;
+        });
+        rows.push(row);
+    }
+    const totalValues = somarNumericos
+        ? numeroTotals.map((x) => (x === null ? '' : Number(x).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })))
+        : [];
+    const cfgBlockOrder = matchedConfig?.reportBlockOrder;
+    const cfgBlockVisibility = matchedConfig?.reportBlockVisibility;
+    const cfgFooterMode = matchedConfig?.reportFooterMode;
+    const cfgFooterAnchor = matchedConfig?.reportFooterAnchor;
+    relatorioLastResult = {
+        tipoId,
+        tipoNome: tipoNome(tipoId),
+        columns,
+        colSpans,
+        blockOrder: normalizeRelatorioBlockOrder(cfgBlockOrder || relatorioSavedBlockOrder),
+        blockVisibility: normalizeRelatorioBlockVisibility(cfgBlockVisibility || relatorioSavedBlockVisibility),
+        footerMode: (cfgFooterMode || relatorioSavedFooterMode) === 'after_block' ? 'after_block' : 'fixed_bottom',
+        footerAnchor: ['cabecalho', 'info_geracao', 'tabela'].includes(String(cfgFooterAnchor || relatorioSavedFooterAnchor || ''))
+            ? (cfgFooterAnchor || relatorioSavedFooterAnchor)
+            : 'tabela',
+        totalValues,
+        rows,
+    };
+    renderRelatorioTable();
 }
 function getAtributosByTipo(tipoId) {
     const attrs = state.atributos.filter((a) => a.tipoId === tipoId);
@@ -827,6 +1385,50 @@ function getDisplayTarget(field) {
             return dropdown;
     }
     return field;
+}
+// @ts-nocheck
+function getRelatorioOrderedAttrs(tipoId, layout = relatorioCurrentLayout) {
+    const attrsById = new Map(getAtributosByTipo(tipoId).map((a) => [a.id, a]));
+    const ordered = [];
+    for (const item of layout || []) {
+        const attr = attrsById.get(item.attrId);
+        if (!attr)
+            continue;
+        ordered.push({
+            attr,
+            colSpan: clampColSpan(item.colSpan || 6),
+        });
+    }
+    return ordered;
+}
+// @ts-nocheck
+function getReportConfigsByTipo(tipoId) {
+    return (state.reportConfigs || []).filter((cfg) => String(cfg.tipoId) === String(tipoId));
+}
+// @ts-nocheck
+function getReportTipos() {
+    if (Array.isArray(state.tipos) && state.tipos.length > 0) {
+        return state.tipos.map((tipo) => ({
+            ...tipo,
+            id: String(tipo.id || ''),
+            nome: String(tipo.nome || '').trim() || inferTipoNome(tipo.id),
+            cabecalho: String(tipo.cabecalho || ''),
+            rodape: String(tipo.rodape || ''),
+        }));
+    }
+    const inferredIds = Array.from(new Set([
+        ...state.atributos.map((a) => a.tipoId).filter(Boolean),
+        ...state.documentos.map((d) => d.tipoId).filter(Boolean),
+        ...Object.keys(state.layouts || {}),
+        ...Object.keys(state.layoutSections || {}),
+        ...Object.keys(state.tipoSecoes || {}),
+    ]));
+    return inferredIds.map((id) => ({
+        id,
+        nome: inferTipoNome(id),
+        cabecalho: '',
+        rodape: '',
+    }));
 }
 // @ts-nocheck
 function getSecoesForTipo(tipoId) {
@@ -861,6 +1463,12 @@ function getSecoesForTipo(tipoId) {
     }
     return normalized
         .map((id) => state.secoes.find((s) => s.id === id))
+        .filter(Boolean);
+}
+// @ts-nocheck
+function getSelectedRelatorioAttributeIds() {
+    return Array.from(ui.relatorioAtributosWrap.querySelectorAll('input[data-relatorio-attr]:checked'))
+        .map((el) => el.dataset.relatorioAttr)
         .filter(Boolean);
 }
 // @ts-nocheck
@@ -931,6 +1539,18 @@ function isValidatorSyntaxValid(raw) {
     const parsed = parseValidatorRules(raw);
     return parsed.invalid.length === 0;
 }
+// @ts-nocheck
+function labelRelatorioBlock(key) {
+    if (key === 'cabecalho')
+        return 'Cabecalho';
+    if (key === 'info_geracao')
+        return 'Info de geracao';
+    if (key === 'tabela')
+        return 'Tabela';
+    if (key === 'rodape')
+        return 'Rodape';
+    return key;
+}
 function loadState() {
     const fallback = {
         tipoCounter: 1,
@@ -944,6 +1564,7 @@ function loadState() {
         layouts: {},
         layoutSections: {},
         tipoSecoes: {},
+        reportConfigs: [],
     };
     try {
         const parsedRaw = localStorage.getItem(STORAGE_KEY);
@@ -1026,6 +1647,7 @@ function loadState() {
             ? parsed.layoutSections
             : {};
         const parsedTipoSecoes = parsed.tipoSecoes && typeof parsed.tipoSecoes === 'object' ? parsed.tipoSecoes : {};
+        const parsedReportConfigs = Array.isArray(parsed.reportConfigs) ? parsed.reportConfigs : [];
         const layouts = {};
         const layoutSections = {};
         const tipoSecoes = {};
@@ -1054,6 +1676,41 @@ function loadState() {
             layouts,
             layoutSections,
             tipoSecoes,
+            reportConfigs: parsedReportConfigs
+                .map((cfg) => ({
+                id: String(cfg.id || ''),
+                nome: String(cfg.nome || '').trim(),
+                tipoId: String(cfg.tipoId || ''),
+                selectedAttrIds: Array.isArray(cfg.selectedAttrIds) ? cfg.selectedAttrIds.map((x) => String(x)) : [],
+                reportLayout: Array.isArray(cfg.reportLayout)
+                    ? cfg.reportLayout.map((x) => ({
+                        attrId: String(x.attrId || ''),
+                        colSpan: clampColSpan(x.colSpan || 6),
+                    })).filter((x) => x.attrId)
+                    : [],
+                reportBlockOrder: normalizeRelatorioBlockOrder(cfg.reportBlockOrder),
+                reportBlockVisibility: normalizeRelatorioBlockVisibility(cfg.reportBlockVisibility),
+                reportFooterMode: cfg.reportFooterMode === 'after_block' ? 'after_block' : 'fixed_bottom',
+                reportFooterAnchor: ['cabecalho', 'info_geracao', 'tabela'].includes(String(cfg.reportFooterAnchor || ''))
+                    ? String(cfg.reportFooterAnchor)
+                    : 'tabela',
+                incluirCabecalho: cfg.incluirCabecalho === undefined ? true : Boolean(cfg.incluirCabecalho),
+                incluirRodape: cfg.incluirRodape === undefined ? true : Boolean(cfg.incluirRodape),
+                filtroAttrId: String(cfg.filtroAttrId || ''),
+                filtroOperador: String(cfg.filtroOperador || 'contains'),
+                filtroValor: String(cfg.filtroValor || ''),
+                somarNumericos: Boolean(cfg.somarNumericos),
+                totalAttrIds: normalizeRelatorioTotalAttrIds(cfg.totalAttrIds, String(cfg.tipoId || '')),
+                ordenacao: normalizeRelatorioOrdenacao(Array.isArray(cfg.ordenacao)
+                    ? cfg.ordenacao
+                    : (cfg.ordenarAttrId
+                        ? [{ attrId: String(cfg.ordenarAttrId), direcao: String(cfg.ordenarDirecao || 'asc') }]
+                        : []), String(cfg.tipoId || '')),
+                ordenarAttrId: String(cfg.ordenarAttrId || ''),
+                ordenarDirecao: String(cfg.ordenarDirecao || 'asc') === 'desc' ? 'desc' : 'asc',
+                createdAt: String(cfg.createdAt || ''),
+            }))
+                .filter((cfg) => cfg.id && cfg.nome && cfg.tipoId),
         };
     }
     catch {
@@ -1095,6 +1752,20 @@ function matchesMask(value, mask) {
     const requiredWildcards = mask.split('').filter((ch) => ch === '9').length;
     const payload = extractMaskPayload(value, mask);
     return payload.length === requiredWildcards;
+}
+// @ts-nocheck
+function matchesRelatorioFilter(valueText, operador, filtroValor) {
+    const actual = String(valueText || '').trim().toLowerCase();
+    const expected = String(filtroValor || '').trim().toLowerCase();
+    if (operador === 'empty')
+        return actual === '' || actual === '-';
+    if (operador === 'not_empty')
+        return actual !== '' && actual !== '-';
+    if (operador === 'equals')
+        return actual === expected;
+    if (operador === 'not_equals')
+        return actual !== expected;
+    return actual.includes(expected);
 }
 // @ts-nocheck
 function moveAttributeToSection(tipoId, attrId, targetSectionKey) {
@@ -1173,6 +1844,71 @@ function moveLayoutSectionBefore(tipoId, draggedKey, targetKey) {
     refreshMaterializeUI();
 }
 // @ts-nocheck
+function moveRelatorioLayoutBlockBefore(draggedKey, targetKey) {
+    if (!draggedKey || !targetKey || draggedKey === targetKey)
+        return;
+    const items = Array.isArray(relatorioLayoutBlocksWorking) ? [...relatorioLayoutBlocksWorking] : [];
+    const from = items.findIndex((x) => x === draggedKey);
+    const to = items.findIndex((x) => x === targetKey);
+    if (from < 0 || to < 0)
+        return;
+    const [dragged] = items.splice(from, 1);
+    const targetIndex = items.findIndex((x) => x === targetKey);
+    items.splice(targetIndex < 0 ? items.length : targetIndex, 0, dragged);
+    relatorioLayoutBlocksWorking = items;
+}
+// @ts-nocheck
+function moveRelatorioLayoutBlockItem(key, direction) {
+    const idx = (relatorioLayoutBlocksWorking || []).findIndex((x) => x === key);
+    if (idx < 0)
+        return;
+    const to = idx + Number(direction || 0);
+    if (to < 0 || to >= relatorioLayoutBlocksWorking.length)
+        return;
+    const tmp = relatorioLayoutBlocksWorking[idx];
+    relatorioLayoutBlocksWorking[idx] = relatorioLayoutBlocksWorking[to];
+    relatorioLayoutBlocksWorking[to] = tmp;
+}
+// @ts-nocheck
+function moveRelatorioLayoutItem(attrId, direction) {
+    const idx = (relatorioCurrentLayout || []).findIndex((x) => x.attrId === attrId);
+    if (idx < 0)
+        return;
+    const target = idx + Number(direction || 0);
+    if (target < 0 || target >= relatorioCurrentLayout.length)
+        return;
+    const tmp = relatorioCurrentLayout[idx];
+    relatorioCurrentLayout[idx] = relatorioCurrentLayout[target];
+    relatorioCurrentLayout[target] = tmp;
+    renderRelatorioLayoutEditor(ui.relatorioTipo.value);
+}
+// @ts-nocheck
+function moveRelatorioLayoutWorkingBefore(draggedAttrId, targetAttrId) {
+    if (!draggedAttrId || !targetAttrId || draggedAttrId === targetAttrId)
+        return;
+    const items = Array.isArray(relatorioLayoutWorking) ? [...relatorioLayoutWorking] : [];
+    const from = items.findIndex((x) => x.attrId === draggedAttrId);
+    const to = items.findIndex((x) => x.attrId === targetAttrId);
+    if (from < 0 || to < 0)
+        return;
+    const [dragged] = items.splice(from, 1);
+    const targetIndex = items.findIndex((x) => x.attrId === targetAttrId);
+    items.splice(targetIndex < 0 ? items.length : targetIndex, 0, dragged);
+    relatorioLayoutWorking = items;
+}
+// @ts-nocheck
+function moveRelatorioLayoutWorkingItem(attrId, direction) {
+    const idx = (relatorioLayoutWorking || []).findIndex((x) => x.attrId === attrId);
+    if (idx < 0)
+        return;
+    const to = idx + Number(direction || 0);
+    if (to < 0 || to >= relatorioLayoutWorking.length)
+        return;
+    const tmp = relatorioLayoutWorking[idx];
+    relatorioLayoutWorking[idx] = relatorioLayoutWorking[to];
+    relatorioLayoutWorking[to] = tmp;
+}
+// @ts-nocheck
 function moveSectionAttributesToSection(tipoId, sourceSectionKey, targetSectionKey) {
     if (!sourceSectionKey || !targetSectionKey)
         return;
@@ -1202,6 +1938,90 @@ function normalizePlaceholderKey(text) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '_')
         .replace(/^_+|_+$/g, '');
+}
+// @ts-nocheck
+function normalizeRelatorioBlockOrder(order) {
+    const allowed = new Set(defaultRelatorioBlockOrder());
+    const normalized = [];
+    for (const key of Array.isArray(order) ? order : []) {
+        if (!allowed.has(key))
+            continue;
+        if (normalized.includes(key))
+            continue;
+        normalized.push(key);
+    }
+    for (const key of defaultRelatorioBlockOrder()) {
+        if (!normalized.includes(key))
+            normalized.push(key);
+    }
+    return normalized;
+}
+// @ts-nocheck
+function normalizeRelatorioBlockVisibility(raw) {
+    const normalized = {};
+    for (const key of defaultRelatorioBlockOrder()) {
+        normalized[key] = raw && Object.prototype.hasOwnProperty.call(raw, key) ? Boolean(raw[key]) : true;
+    }
+    return normalized;
+}
+// @ts-nocheck
+function normalizeRelatorioOrdenacao(raw, tipoId = '') {
+    let allowed = null;
+    if (tipoId && typeof getAtributosByTipo === 'function') {
+        try {
+            // During bootstrap, state may not be initialized yet.
+            const attrs = getAtributosByTipo(tipoId);
+            if (Array.isArray(attrs) && attrs.length) {
+                allowed = new Set(attrs.map((a) => a.id));
+            }
+        }
+        catch {
+            allowed = null;
+        }
+    }
+    const out = [];
+    const seen = new Set();
+    for (const item of Array.isArray(raw) ? raw : []) {
+        const attrId = String(item?.attrId || '');
+        if (!attrId)
+            continue;
+        if (allowed && !allowed.has(attrId))
+            continue;
+        if (seen.has(attrId))
+            continue;
+        seen.add(attrId);
+        out.push({
+            attrId,
+            direcao: String(item?.direcao || 'asc') === 'desc' ? 'desc' : 'asc',
+        });
+    }
+    return out;
+}
+// @ts-nocheck
+function normalizeRelatorioTotalAttrIds(raw, tipoId = '') {
+    let allowed = new Set();
+    if (tipoId && typeof getAtributosByTipo === 'function') {
+        try {
+            allowed = new Set(getAtributosByTipo(tipoId)
+                .filter((a) => a.tipoCampo === 'numero')
+                .map((a) => a.id));
+        }
+        catch {
+            allowed = new Set();
+        }
+    }
+    const out = [];
+    const seen = new Set();
+    for (const id of Array.isArray(raw) ? raw : []) {
+        const attrId = String(id || '');
+        if (!attrId || seen.has(attrId))
+            continue;
+        if (allowed.size && !allowed.has(attrId))
+            continue;
+        seen.add(attrId);
+        out.push(attrId);
+    }
+    return out;
 }
 // @ts-nocheck
 function notify(message) {
@@ -1270,7 +2090,7 @@ function onAtributoSubmit(e) {
     resetAtributoForm();
     renderAll();
 }
-function onDocumentoSubmit(e) {
+async function onDocumentoSubmit(e) {
     e.preventDefault();
     clearDocumentoFieldErrors();
     const titulo = ui.documentoTitulo.value.trim();
@@ -1319,15 +2139,18 @@ function onDocumentoSubmit(e) {
     }
     saveState();
     if (savedDoc) {
-        const estrutura = {
-            documento: savedDoc,
-            tipo: state.tipos.find((t) => t.id === savedDoc.tipoId) || null,
-            secoes: getSecoesForTipo(savedDoc.tipoId),
-            atributos: getAtributosByTipo(savedDoc.tipoId),
-            layout: state.layouts[savedDoc.tipoId] || [],
-            layoutSections: state.layoutSections[savedDoc.tipoId] || [],
-        };
+        const estrutura = buildDocumentoEstruturaPayload(savedDoc);
         console.log('[documento:save]', JSON.stringify(estrutura, null, 2));
+        try {
+            const apiResult = await postDocumentoPayloadToApi(estrutura);
+            if (apiResult.sent) {
+                console.log('[documento:api] payload enviado com sucesso');
+            }
+        }
+        catch (error) {
+            console.error('[documento:api] erro ao enviar payload', error);
+            notify('Documento salvo localmente, mas falhou envio para API.');
+        }
     }
     resetDocumentoForm();
     renderAll();
@@ -1339,6 +2162,64 @@ function onDocumentoTipoChange() {
     clearDocumentoFieldErrors();
     renderDocumentoCampos();
     refreshTemplatePreviews();
+}
+// @ts-nocheck
+function onRelatorioAdicionarOrdenacao() {
+    const tipoId = ui.relatorioTipo.value;
+    if (!tipoId)
+        return;
+    const attrId = String(ui.relatorioOrdenarAtributo.value || '');
+    if (!attrId) {
+        notify('Selecione um atributo para ordenar.');
+        return;
+    }
+    const direcao = ui.relatorioOrdenarDirecao.value === 'desc' ? 'desc' : 'asc';
+    relatorioOrdenacaoWorking = normalizeRelatorioOrdenacao([...relatorioOrdenacaoWorking.filter((x) => x.attrId !== attrId), { attrId, direcao }], tipoId);
+    renderRelatorioOrdenacaoLista(tipoId);
+}
+// @ts-nocheck
+function onRelatorioConfigSelectChange() {
+    const tipoId = ui.relatorioTipo.value;
+    const configId = String(ui.relatorioConfigSelect.value || '');
+    if (!tipoId || !configId)
+        return;
+    const cfg = (state.reportConfigs || []).find((x) => x.id === configId && x.tipoId === tipoId);
+    if (!cfg)
+        return;
+    applyRelatorioConfig(cfg);
+    notify('Configuracao aplicada.');
+}
+// @ts-nocheck
+function onRelatorioLayoutConfigChange() {
+    renderRelatorioLayoutCanvas(ui.relatorioLayoutTipo.value, ui.relatorioLayoutConfig.value || '');
+}
+// @ts-nocheck
+function onRelatorioLayoutTipoChange() {
+    const tipoId = ui.relatorioLayoutTipo.value;
+    renderRelatorioLayoutConfigOptions(tipoId);
+    renderRelatorioLayoutCanvas(tipoId, ui.relatorioLayoutConfig.value || '');
+    refreshMaterializeUI();
+}
+// @ts-nocheck
+function onRelatorioTipoChange() {
+    const tipoId = ui.relatorioTipo.value;
+    if (!tipoId)
+        return;
+    relatorioSavedLayout = [];
+    relatorioSavedBlockOrder = [];
+    relatorioSavedBlockVisibility = {};
+    relatorioSavedFooterMode = 'fixed_bottom';
+    relatorioSavedFooterAnchor = 'tabela';
+    relatorioOrdenacaoWorking = [];
+    relatorioTotalAttrIdsWorking = [];
+    renderRelatorioConfigSelectOptions(tipoId, '');
+    renderRelatorioAtributosByTipo(tipoId, true);
+    ui.relatorioConfigNome.value = '';
+    ui.relatorioSomarNumeros.checked = false;
+    ui.relatorioOrdenarAtributo.value = '';
+    ui.relatorioOrdenarDirecao.value = 'asc';
+    closeRelatorioConfigDialog();
+    refreshMaterializeUI();
 }
 // @ts-nocheck
 function onSecaoSubmit(e) {
@@ -1394,6 +2275,16 @@ function onTipoSubmit(e) {
     saveState();
     resetTipoForm();
     renderAll();
+}
+// @ts-nocheck
+function openRelatorioConfigDialog() {
+    const dialog = ui.relatorioConfigDialog;
+    if (!dialog || typeof dialog.showModal !== 'function') {
+        notify('Dialogo nao suportado neste navegador.');
+        return;
+    }
+    renderRelatorioConfigDialogList();
+    dialog.showModal();
 }
 // @ts-nocheck
 function openTab(tabId) {
@@ -1470,6 +2361,30 @@ function parseValidatorRules(raw) {
     return result;
 }
 // @ts-nocheck
+async function postDocumentoPayloadToApi(payload) {
+    if (!DOCUMENTO_API_URL)
+        return { sent: false, reason: 'url_not_configured' };
+    const response = await fetch(DOCUMENTO_API_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        let bodyText = '';
+        try {
+            bodyText = await response.text();
+        }
+        catch {
+            bodyText = '';
+        }
+        throw new Error(`Falha ao enviar para API (${response.status}): ${bodyText || 'sem detalhe'}`);
+    }
+    return { sent: true };
+}
+// @ts-nocheck
 function refreshMaterializeUI() {
     if (!window.M)
         return;
@@ -1536,6 +2451,8 @@ function renderAll() {
     renderLayoutEditor();
     renderDocumentoCampos();
     renderDocumentos();
+    renderRelatorioBuilder();
+    renderRelatorioLayoutPage();
     refreshMaterializeUI();
 }
 // @ts-nocheck
@@ -1594,6 +2511,16 @@ function renderDocumentoCampos() {
         ui.documentoCampos.innerHTML = '<p class="empty">Sem atributos para este tipo.</p>';
         return;
     }
+    const tipo = state.tipos.find((t) => t.id === tipoId) || null;
+    const placeholderCtx = buildHeaderFooterPlaceholderContext(tipoId, tempDocumentoValores, ui.documentoTitulo.value || '');
+    const tipoCabecalho = resolveTemplateTextForOutput(tipo?.cabecalho || '', placeholderCtx).trim();
+    const tipoRodape = resolveTemplateTextForOutput(tipo?.rodape || '', placeholderCtx).trim();
+    if (tipoCabecalho) {
+        const topBlock = document.createElement('div');
+        topBlock.className = 'doc-section-template';
+        topBlock.textContent = tipoCabecalho;
+        ui.documentoCampos.appendChild(topBlock);
+    }
     for (const group of groups) {
         const isSemSecao = group.key === '__sem_secao__';
         const fieldset = document.createElement(isSemSecao ? 'div' : 'fieldset');
@@ -1637,6 +2564,12 @@ function renderDocumentoCampos() {
         }
         fieldset.appendChild(grid);
         ui.documentoCampos.appendChild(fieldset);
+    }
+    if (tipoRodape) {
+        const footerBlock = document.createElement('div');
+        footerBlock.className = 'doc-section-template doc-section-footer-template';
+        footerBlock.textContent = `Rodape: ${tipoRodape}`;
+        ui.documentoCampos.appendChild(footerBlock);
     }
     refreshTemplatePreviews();
 }
@@ -1862,6 +2795,898 @@ function renderLayoutEditor() {
     ui.layoutGridEditor.appendChild(sectionsWrap);
 }
 // @ts-nocheck
+function renderPdfSectionTables({ pdf, documento, pdfVisivel, placeholderCtx, palette, margin, contentWidth, pageHeight, startY, }) {
+    let y = startY;
+    const groups = buildSectionGroupsForTipo(documento.tipoId, { includeEmptySections: true }).filter((group) => group.key !== '__sem_secao__' || group.items.length > 0);
+    const signatureAttrs = groups
+        .flatMap((group) => group.items)
+        .map((item) => item.attr)
+        .filter((attr) => attr.tipoCampo === 'assinatura' && pdfVisivel[attr.id] !== false);
+    if (groups.length === 0) {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(11);
+        pdf.setTextColor(...palette.textMain);
+        pdf.text('Sem secoes/atributos configurados para este tipo.', margin, y);
+        y += 20;
+        return { y, signatureAttrs };
+    }
+    const ensureSpace = (required = 20) => {
+        if (y + required <= pageHeight - margin)
+            return;
+        pdf.addPage();
+        y = margin;
+    };
+    const semSecaoKey = '__sem_secao__';
+    const sectionHeaderHeight = 22;
+    const sectionPadding = 10;
+    const tableHeaderHeight = 18;
+    const rowLineHeight = 11;
+    const rowPaddingY = 5;
+    const col1Ratio = 0.36;
+    const sectionInfoGap = 6;
+    const sectionInfoLineHeight = 10.5;
+    const sectionInfoPadY = 5;
+    for (const group of groups) {
+        const secao = group.key === semSecaoKey ? null : state.secoes.find((s) => s.id === group.key);
+        const secaoCabecalho = resolveTemplateTextForOutput(secao?.cabecalho || '', placeholderCtx).trim();
+        const secaoRodape = resolveTemplateTextForOutput(secao?.rodape || '', placeholderCtx).trim();
+        const rows = group.items
+            .filter((item) => pdfVisivel[item.attr.id] !== false && item.attr.tipoCampo !== 'assinatura')
+            .map((item) => {
+            const attr = item.attr;
+            const raw = documento.valores[attr.id];
+            const value = resolveAttrValueForOutput(attr, raw, placeholderCtx);
+            const isPlaceholderTemplate = attr.tipoCampo === 'texto_placeholder' || attr.tipoCampo === 'textarea_template';
+            const hideFieldName = isPlaceholderTemplate || attr.tipoCampo === 'textarea' || attr.tipoCampo === 'textarea_template';
+            const campo = hideFieldName ? '' : String(attr.nome);
+            return { campo, valor: String(value), fullwidth: isPlaceholderTemplate };
+        });
+        if (rows.length === 0)
+            continue;
+        const tableX = margin + (group.key === semSecaoKey ? 0 : sectionPadding);
+        const tableWidth = contentWidth - (group.key === semSecaoKey ? 0 : sectionPadding * 2);
+        const col1Width = tableWidth * col1Ratio;
+        const col2Width = tableWidth - col1Width;
+        const measuredRows = rows.map((row) => {
+            if (row.fullwidth) {
+                const lineHeight = rowLineHeight + 2;
+                const valorLines = pdf.splitTextToSize(row.valor, tableWidth - 10);
+                const height = Math.max(1, valorLines.length) * lineHeight + rowPaddingY * 2;
+                return {
+                    ...row,
+                    campoLines: [],
+                    valorLines,
+                    height,
+                    lineHeight,
+                    fontSize: 12,
+                };
+            }
+            const campoLines = pdf.splitTextToSize(row.campo, col1Width - 8);
+            const valorLines = pdf.splitTextToSize(row.valor, col2Width - 8);
+            const height = Math.max(campoLines.length, valorLines.length) * rowLineHeight + rowPaddingY * 2;
+            return {
+                ...row,
+                campoLines,
+                valorLines,
+                height,
+                lineHeight: rowLineHeight,
+                fontSize: 9.5,
+            };
+        });
+        const hasOnlyFullwidthRows = measuredRows.every((row) => row.fullwidth);
+        const effectiveTableHeaderHeight = hasOnlyFullwidthRows ? 0 : tableHeaderHeight;
+        const sectionInfoWidth = tableWidth - 8;
+        const headerLines = group.key !== semSecaoKey && secaoCabecalho
+            ? pdf.splitTextToSize(secaoCabecalho, sectionInfoWidth)
+            : [];
+        const footerLines = group.key !== semSecaoKey && secaoRodape
+            ? pdf.splitTextToSize(`Rodape: ${secaoRodape}`, sectionInfoWidth)
+            : [];
+        const headerInfoHeight = headerLines.length > 0 ? headerLines.length * sectionInfoLineHeight + sectionInfoPadY * 2 : 0;
+        const footerInfoHeight = footerLines.length > 0 ? footerLines.length * sectionInfoLineHeight + sectionInfoPadY * 2 : 0;
+        const headerInfoTotal = headerInfoHeight > 0 ? headerInfoHeight + sectionInfoGap : 0;
+        const footerInfoTotal = footerInfoHeight > 0 ? sectionInfoGap + footerInfoHeight : 0;
+        const tableBodyHeight = measuredRows.reduce((sum, r) => sum + r.height, 0);
+        const tableHeight = effectiveTableHeaderHeight + tableBodyHeight;
+        const wrapperHeight = group.key === semSecaoKey
+            ? tableHeight
+            : sectionHeaderHeight + sectionPadding + headerInfoTotal + tableHeight + footerInfoTotal + sectionPadding;
+        ensureSpace(wrapperHeight + 10);
+        let cursorY = y;
+        if (group.key !== semSecaoKey) {
+            pdf.setDrawColor(...palette.cardBorder);
+            pdf.setFillColor(...palette.cardBg);
+            pdf.roundedRect(margin, y, contentWidth, wrapperHeight, 4, 4, 'FD');
+            pdf.setFillColor(...palette.chipBg);
+            pdf.roundedRect(margin, y, contentWidth, sectionHeaderHeight, 4, 4, 'F');
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(11);
+            pdf.setTextColor(...palette.textMain);
+            pdf.text(group.nome, margin + sectionPadding, y + 15);
+            cursorY = y + sectionHeaderHeight + sectionPadding;
+            if (headerInfoHeight > 0) {
+                pdf.setDrawColor(...palette.cardBorder);
+                pdf.setFillColor(...palette.chipBg);
+                pdf.rect(tableX, cursorY, tableWidth, headerInfoHeight, 'FD');
+                pdf.setFont('helvetica', 'normal');
+                pdf.setFontSize(9.2);
+                pdf.setTextColor(...palette.textMuted);
+                let headerY = cursorY + sectionInfoPadY + 7;
+                for (const line of headerLines) {
+                    pdf.text(line, tableX + 4, headerY);
+                    headerY += sectionInfoLineHeight;
+                }
+                cursorY += headerInfoHeight + sectionInfoGap;
+            }
+        }
+        else {
+            cursorY = y;
+        }
+        if (effectiveTableHeaderHeight > 0) {
+            pdf.setDrawColor(...palette.cardBorder);
+            pdf.setFillColor(...palette.chipBg);
+            pdf.rect(tableX, cursorY, tableWidth, effectiveTableHeaderHeight, 'FD');
+            pdf.line(tableX + col1Width, cursorY, tableX + col1Width, cursorY + effectiveTableHeaderHeight);
+        }
+        let rowY = cursorY + effectiveTableHeaderHeight;
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(9.5);
+        pdf.setTextColor(...palette.textMuted);
+        for (const row of measuredRows) {
+            pdf.rect(tableX, rowY, tableWidth, row.height);
+            if (!row.fullwidth) {
+                pdf.line(tableX + col1Width, rowY, tableX + col1Width, rowY + row.height);
+            }
+            if (row.fullwidth) {
+                pdf.setFontSize(row.fontSize);
+                pdf.setTextColor(...palette.textMain);
+                let vY = rowY + rowPaddingY + 9;
+                for (const line of row.valorLines) {
+                    pdf.text(line, tableX + 6, vY);
+                    vY += row.lineHeight;
+                }
+            }
+            else {
+                pdf.setFontSize(row.fontSize);
+                pdf.setTextColor(...palette.textMuted);
+                let cY = rowY + rowPaddingY + 8;
+                for (const line of row.campoLines) {
+                    pdf.text(line, tableX + 4, cY);
+                    cY += row.lineHeight;
+                }
+                let vY = rowY + rowPaddingY + 8;
+                for (const line of row.valorLines) {
+                    pdf.text(line, tableX + col1Width + 4, vY);
+                    vY += row.lineHeight;
+                }
+            }
+            rowY += row.height;
+        }
+        if (footerInfoHeight > 0) {
+            const footerY = rowY + sectionInfoGap;
+            pdf.setDrawColor(...palette.cardBorder);
+            pdf.setFillColor(...palette.chipBg);
+            pdf.rect(tableX, footerY, tableWidth, footerInfoHeight, 'FD');
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(9.2);
+            pdf.setTextColor(...palette.textMuted);
+            let footerLineY = footerY + sectionInfoPadY + 7;
+            for (const line of footerLines) {
+                pdf.text(line, tableX + 4, footerLineY);
+                footerLineY += sectionInfoLineHeight;
+            }
+        }
+        y += wrapperHeight + 10;
+    }
+    return { y, signatureAttrs };
+}
+// @ts-nocheck
+function renderPdfSignatureBlocks({ pdf, documento, signatureAttrs, tipoRodape, palette, margin, contentWidth, pageHeight, pageWidth, startY, }) {
+    let y = startY;
+    const signatureBoxWidth = Math.min(420, contentWidth * 0.86);
+    const signatureBoxHeight = 92;
+    const signatureInnerPadding = 12;
+    const signatureGap = 26;
+    const signatureCaptionGap = 15;
+    const signatureNameFont = 10;
+    const blockHeight = signatureBoxHeight + signatureCaptionGap + 8;
+    const totalHeight = signatureAttrs.length * blockHeight + Math.max(0, signatureAttrs.length - 1) * signatureGap;
+    const bottomOffset = 8;
+    const footerGap = 14;
+    const footerReserved = tipoRodape
+        ? Math.max(1, pdf.splitTextToSize(String(tipoRodape), contentWidth).length) * footerGap + 10
+        : 0;
+    const lastAvailableY = pageHeight - bottomOffset - footerReserved;
+    if (y + totalHeight > lastAvailableY) {
+        pdf.addPage();
+        y = margin;
+    }
+    const startYPos = Math.max(y + 10, lastAvailableY - totalHeight);
+    const centerX = pageWidth / 2;
+    pdf.setDrawColor(...palette.textMuted);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(signatureNameFont);
+    pdf.setTextColor(...palette.textMuted);
+    for (let i = 0; i < signatureAttrs.length; i += 1) {
+        const attr = signatureAttrs[i];
+        const rawName = documento.valores[attr.id];
+        const name = rawName ? String(rawName) : '';
+        const blockTop = startYPos + i * (blockHeight + signatureGap);
+        const boxX = centerX - signatureBoxWidth / 2;
+        const lineY = blockTop + signatureBoxHeight - signatureInnerPadding;
+        const x1 = boxX + signatureInnerPadding;
+        const x2 = boxX + signatureBoxWidth - signatureInnerPadding;
+        pdf.rect(boxX, blockTop, signatureBoxWidth, signatureBoxHeight);
+        pdf.line(x1, lineY, x2, lineY);
+        const label = name.trim() ? `Assinatura: ${name}` : 'Assinatura';
+        const labelWidth = pdf.getTextWidth(label);
+        pdf.text(label, centerX - labelWidth / 2, lineY + signatureCaptionGap);
+    }
+    return startYPos + totalHeight + 6;
+}
+// @ts-nocheck
+function renderPdfTipoFooter({ pdf, tipoRodape, palette, margin, contentWidth, pageHeight, currentY, }) {
+    let y = currentY;
+    if (!tipoRodape)
+        return y;
+    const footerSize = 10.5;
+    const footerGap = 14;
+    const bottomOffset = 8;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(footerSize);
+    pdf.setTextColor(...palette.textMuted);
+    const footerLines = pdf.splitTextToSize(String(tipoRodape), contentWidth);
+    let footerStartY = pageHeight - bottomOffset - (Math.max(footerLines.length, 1) - 1) * footerGap;
+    if (y + 8 > footerStartY) {
+        pdf.addPage();
+        y = margin;
+        footerStartY = pageHeight - bottomOffset - (Math.max(footerLines.length, 1) - 1) * footerGap;
+    }
+    pdf.text(footerLines, margin, footerStartY);
+    return y;
+}
+// @ts-nocheck
+function renderRelatorioAtributosByTipo(tipoId, selectAll = false) {
+    const attrs = getAtributosByTipo(tipoId);
+    ui.relatorioAtributosWrap.innerHTML = '';
+    ui.relatorioFiltroAtributo.innerHTML = '<option value="">Sem filtro</option>';
+    ui.relatorioOrdenarAtributo.innerHTML = '<option value="">Sem ordenacao</option>';
+    if (attrs.length === 0) {
+        ui.relatorioAtributosWrap.innerHTML = '<p class="empty">Sem atributos para este tipo.</p>';
+        relatorioOrdenacaoWorking = [];
+        relatorioTotalAttrIdsWorking = [];
+        renderRelatorioOrdenacaoLista(tipoId);
+        relatorioLastResult = { tipoNome: tipoNome(tipoId), columns: [], colSpans: [], totalValues: [], rows: [] };
+        ui.relatorioResumo.textContent = '';
+        ui.relatorioTabelaHead.innerHTML = '';
+        ui.relatorioTabelaBody.innerHTML = '';
+        return;
+    }
+    const selectedIds = new Set(selectAll ? [] : getSelectedRelatorioAttributeIds());
+    relatorioTotalAttrIdsWorking = normalizeRelatorioTotalAttrIds(relatorioTotalAttrIdsWorking, tipoId);
+    const totalSelected = new Set(relatorioTotalAttrIdsWorking);
+    const list = document.createElement('div');
+    list.className = 'relatorio-attrs-list';
+    for (const attr of attrs) {
+        const opt = document.createElement('option');
+        opt.value = attr.id;
+        opt.textContent = attr.nome;
+        ui.relatorioFiltroAtributo.appendChild(opt);
+        const sortOpt = document.createElement('option');
+        sortOpt.value = attr.id;
+        sortOpt.textContent = attr.nome;
+        ui.relatorioOrdenarAtributo.appendChild(sortOpt);
+        const label = document.createElement('label');
+        label.className = 'relatorio-attr-item';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.dataset.relatorioAttr = attr.id;
+        input.checked = selectAll || selectedIds.size === 0 || selectedIds.has(attr.id);
+        const span = document.createElement('span');
+        span.textContent = attr.nome;
+        label.appendChild(input);
+        label.appendChild(span);
+        if (attr.tipoCampo === 'numero') {
+            const totalWrap = document.createElement('span');
+            totalWrap.style.marginLeft = '8px';
+            totalWrap.style.display = 'inline-flex';
+            totalWrap.style.alignItems = 'center';
+            totalWrap.style.gap = '4px';
+            totalWrap.innerHTML = `
+        <input type="checkbox" data-relatorio-total-attr="${attr.id}" ${totalSelected.has(attr.id) ? 'checked' : ''} />
+        <small class="grey-text">Σ</small>
+      `;
+            const totalInput = totalWrap.querySelector(`input[data-relatorio-total-attr="${attr.id}"]`);
+            totalInput.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    if (!relatorioTotalAttrIdsWorking.includes(attr.id))
+                        relatorioTotalAttrIdsWorking.push(attr.id);
+                }
+                else {
+                    relatorioTotalAttrIdsWorking = relatorioTotalAttrIdsWorking.filter((id) => id !== attr.id);
+                }
+            });
+            totalInput.addEventListener('mousedown', (e) => e.stopPropagation());
+            totalInput.addEventListener('click', (e) => e.stopPropagation());
+            label.appendChild(totalWrap);
+        }
+        list.appendChild(label);
+    }
+    ui.relatorioAtributosWrap.appendChild(list);
+    ui.relatorioAtributosWrap.querySelectorAll('input[data-relatorio-attr]').forEach((el) => {
+        el.addEventListener('change', () => {
+            const id = el.dataset.relatorioAttr;
+            if (!el.checked && id) {
+                relatorioTotalAttrIdsWorking = relatorioTotalAttrIdsWorking.filter((x) => x !== id);
+                const totalEl = ui.relatorioAtributosWrap.querySelector(`input[data-relatorio-total-attr="${id}"]`);
+                if (totalEl)
+                    totalEl.checked = false;
+            }
+        });
+    });
+    relatorioOrdenacaoWorking = normalizeRelatorioOrdenacao(relatorioOrdenacaoWorking, tipoId);
+    renderRelatorioOrdenacaoLista(tipoId);
+    if (!attrs.some((a) => a.id === ui.relatorioOrdenarAtributo.value)) {
+        ui.relatorioOrdenarAtributo.value = '';
+    }
+    refreshMaterializeUI();
+}
+// @ts-nocheck
+function renderRelatorioBuilder() {
+    const tipos = getReportTipos();
+    ui.relatorioTipo.innerHTML = '';
+    if (!tipos.length) {
+        ui.relatorioTipo.innerHTML = '<option value="">Sem tipos</option>';
+        ui.relatorioAtributosWrap.innerHTML = '<p class="empty">Nenhum tipo cadastrado.</p>';
+        ui.relatorioFiltroAtributo.innerHTML = '<option value="">Sem atributos</option>';
+        ui.relatorioOrdenarAtributo.innerHTML = '<option value="">Sem ordenacao</option>';
+        ui.relatorioOrdenarDirecao.value = 'asc';
+        relatorioOrdenacaoWorking = [];
+        if (ui.relatorioOrdenacaoLista) {
+            ui.relatorioOrdenacaoLista.innerHTML = '<li class="collection-item">Sem ordenacao composta.</li>';
+        }
+        ui.relatorioResumo.textContent = '';
+        ui.relatorioTabelaHead.innerHTML = '';
+        ui.relatorioTabelaBody.innerHTML = '';
+        return;
+    }
+    const selectedTipoId = ui.relatorioTipo.value && tipos.some((t) => t.id === ui.relatorioTipo.value)
+        ? ui.relatorioTipo.value
+        : tipos[0].id;
+    for (const tipo of tipos) {
+        const option = document.createElement('option');
+        option.value = tipo.id;
+        option.textContent = String(tipo.nome || '').trim() || inferTipoNome(tipo.id) || tipo.id;
+        if (tipo.id === selectedTipoId)
+            option.selected = true;
+        ui.relatorioTipo.appendChild(option);
+    }
+    ui.relatorioTipo.value = selectedTipoId;
+    renderRelatorioConfigSelectOptions(selectedTipoId, '');
+    ui.relatorioSomarNumeros.checked = Boolean(ui.relatorioSomarNumeros.checked);
+    ui.relatorioFiltroOperador.value = ui.relatorioFiltroOperador.value || 'contains';
+    ui.relatorioOrdenarDirecao.value = ui.relatorioOrdenarDirecao.value === 'desc' ? 'desc' : 'asc';
+    renderRelatorioAtributosByTipo(selectedTipoId, true);
+}
+// @ts-nocheck
+function renderRelatorioConfigDialogList() {
+    const tipoId = ui.relatorioTipo.value;
+    const list = getReportConfigsByTipo(tipoId);
+    ui.relatorioConfigList.innerHTML = '';
+    if (!list.length) {
+        ui.relatorioConfigList.innerHTML = '<li class="collection-item">Nenhuma configuracao salva para este tipo.</li>';
+        return;
+    }
+    for (const cfg of list) {
+        const li = document.createElement('li');
+        li.className = 'collection-item';
+        li.innerHTML = `
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+        <div>
+          <strong>${escapeHtml(cfg.nome)}</strong>
+          <small class="grey-text" style="display:block;">${escapeHtml(new Date(cfg.createdAt).toLocaleString())}</small>
+        </div>
+        <div class="item-actions">
+          <button type="button" class="btn-flat btn-small" data-load="${cfg.id}">Usar</button>
+          <button type="button" class="btn-flat btn-small red-text" data-del="${cfg.id}">Excluir</button>
+        </div>
+      </div>
+    `;
+        li.querySelector('[data-load]').addEventListener('click', () => {
+            const chosen = (state.reportConfigs || []).find((x) => x.id === cfg.id);
+            if (!chosen)
+                return;
+            applyRelatorioConfig(chosen);
+            closeRelatorioConfigDialog();
+            notify('Configuracao aplicada.');
+        });
+        li.querySelector('[data-del]').addEventListener('click', () => {
+            state.reportConfigs = (state.reportConfigs || []).filter((x) => x.id !== cfg.id);
+            saveState();
+            renderRelatorioConfigSelectOptions(tipoId, '');
+            refreshMaterializeUI();
+            renderRelatorioConfigDialogList();
+            notify('Configuracao removida.');
+        });
+        ui.relatorioConfigList.appendChild(li);
+    }
+}
+// @ts-nocheck
+function renderRelatorioConfigSelectOptions(tipoId, preferredId = '') {
+    if (!ui.relatorioConfigSelect)
+        return;
+    const configs = getReportConfigsByTipo(tipoId);
+    const prev = String(preferredId || ui.relatorioConfigSelect.value || '');
+    ui.relatorioConfigSelect.innerHTML = '';
+    if (!configs.length) {
+        ui.relatorioConfigSelect.innerHTML = '<option value="">Sem configuracoes salvas</option>';
+        ui.relatorioConfigSelect.value = '';
+        return;
+    }
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Selecione uma configuracao';
+    ui.relatorioConfigSelect.appendChild(placeholder);
+    for (const cfg of configs) {
+        const opt = document.createElement('option');
+        opt.value = cfg.id;
+        opt.textContent = cfg.nome;
+        if (cfg.id === prev)
+            opt.selected = true;
+        ui.relatorioConfigSelect.appendChild(opt);
+    }
+    if (!configs.some((c) => c.id === ui.relatorioConfigSelect.value)) {
+        ui.relatorioConfigSelect.value = '';
+    }
+}
+// @ts-nocheck
+function renderRelatorioLayoutBlockCanvas(tipoId, configId) {
+    ui.relatorioLayoutBlockCanvas.innerHTML = '';
+    if (!configId)
+        return;
+    const grid = document.createElement('div');
+    grid.className = 'layout-grid';
+    for (let i = 0; i < relatorioLayoutBlocksWorking.length; i += 1) {
+        const key = relatorioLayoutBlocksWorking[i];
+        const card = document.createElement('div');
+        card.className = 'layout-item';
+        card.style.gridColumn = 'span 12';
+        card.setAttribute('draggable', 'true');
+        card.innerHTML = `
+      <small class="layout-drag-handle">Arraste para ordenar</small>
+      <strong>${escapeHtml(labelRelatorioBlock(key))}</strong>
+      <small>Bloco do relatorio</small>
+      <label class="layout-block-visibility">
+        <input type="checkbox" data-report-block-visible="${key}" ${relatorioLayoutBlockVisibilityWorking[key] !== false ? 'checked' : ''} />
+        <span>Exibir no PDF</span>
+      </label>
+      <div class="layout-item-actions">
+        <button type="button" class="btn-flat btn-small" data-report-block-up="${key}" ${i === 0 ? 'disabled' : ''}>↑</button>
+        <button type="button" class="btn-flat btn-small" data-report-block-down="${key}" ${i === relatorioLayoutBlocksWorking.length - 1 ? 'disabled' : ''}>↓</button>
+      </div>
+    `;
+        const visibleInput = card.querySelector(`[data-report-block-visible="${key}"]`);
+        visibleInput.addEventListener('change', (e) => {
+            relatorioLayoutBlockVisibilityWorking[key] = Boolean(e.target.checked);
+        });
+        visibleInput.addEventListener('mousedown', (e) => e.stopPropagation());
+        visibleInput.addEventListener('click', (e) => e.stopPropagation());
+        card.querySelector(`[data-report-block-up="${key}"]`).addEventListener('click', () => {
+            moveRelatorioLayoutBlockItem(key, -1);
+            renderRelatorioLayoutBlockCanvas(tipoId, configId);
+        });
+        card.querySelector(`[data-report-block-down="${key}"]`).addEventListener('click', () => {
+            moveRelatorioLayoutBlockItem(key, 1);
+            renderRelatorioLayoutBlockCanvas(tipoId, configId);
+        });
+        card.addEventListener('dragstart', (e) => {
+            card.classList.add('is-dragging');
+            if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/report-layout-block', key);
+            }
+        });
+        card.addEventListener('dragend', () => {
+            card.classList.remove('is-dragging');
+            grid.querySelectorAll('.layout-item').forEach((el) => el.classList.remove('drag-over'));
+        });
+        card.addEventListener('dragover', (e) => {
+            const dragged = e.dataTransfer?.getData('text/report-layout-block');
+            if (!dragged || dragged === key)
+                return;
+            e.preventDefault();
+            card.classList.add('drag-over');
+        });
+        card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+        card.addEventListener('drop', (e) => {
+            e.preventDefault();
+            card.classList.remove('drag-over');
+            const dragged = e.dataTransfer?.getData('text/report-layout-block');
+            if (!dragged || dragged === key)
+                return;
+            moveRelatorioLayoutBlockBefore(dragged, key);
+            renderRelatorioLayoutBlockCanvas(tipoId, configId);
+        });
+        grid.appendChild(card);
+    }
+    ui.relatorioLayoutBlockCanvas.appendChild(grid);
+}
+// @ts-nocheck
+function renderRelatorioLayoutCanvas(tipoId, configId) {
+    ui.relatorioLayoutCanvas.innerHTML = '';
+    if (!tipoId) {
+        ui.relatorioLayoutCanvas.innerHTML = '<p class="empty">Selecione um tipo.</p>';
+        return;
+    }
+    if (!configId) {
+        ui.relatorioLayoutCanvas.innerHTML = '<p class="empty">Selecione uma configuracao de relatorio.</p>';
+        return;
+    }
+    const config = (state.reportConfigs || []).find((c) => c.id === configId && c.tipoId === tipoId);
+    if (!config) {
+        ui.relatorioLayoutCanvas.innerHTML = '<p class="empty">Configuracao nao encontrada.</p>';
+        return;
+    }
+    if (relatorioLayoutWorkingConfigId !== configId) {
+        relatorioLayoutWorkingConfigId = configId;
+        relatorioLayoutWorking = buildRelatorioLayoutWorkingFromConfig(tipoId, configId);
+        relatorioTotalAttrIdsWorking = normalizeRelatorioTotalAttrIds(config.totalAttrIds, tipoId);
+        relatorioLayoutBlocksWorking = normalizeRelatorioBlockOrder(config.reportBlockOrder);
+        relatorioLayoutBlockVisibilityWorking = normalizeRelatorioBlockVisibility(config.reportBlockVisibility);
+        relatorioLayoutFooterModeWorking = config.reportFooterMode === 'after_block' ? 'after_block' : 'fixed_bottom';
+        relatorioLayoutFooterAnchorWorking = ['cabecalho', 'info_geracao', 'tabela'].includes(String(config.reportFooterAnchor || ''))
+            ? String(config.reportFooterAnchor)
+            : 'tabela';
+    }
+    else {
+        relatorioLayoutWorking = relatorioLayoutWorking.filter((x) => x && x.attrId);
+        relatorioTotalAttrIdsWorking = normalizeRelatorioTotalAttrIds(relatorioTotalAttrIdsWorking, tipoId);
+        relatorioLayoutBlocksWorking = normalizeRelatorioBlockOrder(relatorioLayoutBlocksWorking);
+        relatorioLayoutBlockVisibilityWorking = normalizeRelatorioBlockVisibility(relatorioLayoutBlockVisibilityWorking);
+        relatorioLayoutFooterModeWorking = relatorioLayoutFooterModeWorking === 'after_block' ? 'after_block' : 'fixed_bottom';
+        relatorioLayoutFooterAnchorWorking = ['cabecalho', 'info_geracao', 'tabela'].includes(String(relatorioLayoutFooterAnchorWorking || ''))
+            ? relatorioLayoutFooterAnchorWorking
+            : 'tabela';
+    }
+    renderRelatorioLayoutBlockCanvas(tipoId, configId);
+    ui.relatorioLayoutFooterMode.value = relatorioLayoutFooterModeWorking;
+    ui.relatorioLayoutFooterAnchor.value = relatorioLayoutFooterAnchorWorking;
+    ui.relatorioLayoutFooterAnchor.disabled = relatorioLayoutFooterModeWorking !== 'after_block';
+    ui.relatorioLayoutFooterMode.onchange = (e) => {
+        relatorioLayoutFooterModeWorking = e.target.value === 'after_block' ? 'after_block' : 'fixed_bottom';
+        ui.relatorioLayoutFooterAnchor.disabled = relatorioLayoutFooterModeWorking !== 'after_block';
+    };
+    ui.relatorioLayoutFooterAnchor.onchange = (e) => {
+        const value = String(e.target.value || 'tabela');
+        relatorioLayoutFooterAnchorWorking = ['cabecalho', 'info_geracao', 'tabela'].includes(value) ? value : 'tabela';
+    };
+    if (!relatorioLayoutWorking.length) {
+        ui.relatorioLayoutCanvas.innerHTML = '<p class="empty">Essa configuracao nao possui atributos selecionados.</p>';
+        return;
+    }
+    const attrs = getAtributosByTipo(tipoId);
+    const attrById = new Map(attrs.map((a) => [a.id, a]));
+    const grid = document.createElement('div');
+    grid.className = 'layout-grid';
+    for (let i = 0; i < relatorioLayoutWorking.length; i += 1) {
+        const item = relatorioLayoutWorking[i];
+        const attr = attrById.get(item.attrId);
+        if (!attr)
+            continue;
+        const card = document.createElement('div');
+        card.className = 'layout-item';
+        card.style.gridColumn = `span ${item.colSpan}`;
+        card.setAttribute('draggable', 'true');
+        card.dataset.reportLayoutAttrId = item.attrId;
+        card.innerHTML = `
+      <strong>${escapeHtml(attr.nome)}</strong>
+      <small>${escapeHtml(attr.tipoCampo)}</small>
+      <div class="layout-item-controls">
+        <label>
+          Largura
+          <select class="browser-default" data-report-layout-span="${item.attrId}">
+            ${[3, 4, 6, 8, 12].map((v) => `<option value="${v}" ${v === item.colSpan ? 'selected' : ''}>${v}/12</option>`).join('')}
+          </select>
+        </label>
+        <div class="layout-item-actions">
+          <button type="button" class="btn-flat btn-small" data-report-layout-up="${item.attrId}" ${i === 0 ? 'disabled' : ''}>↑</button>
+          <button type="button" class="btn-flat btn-small" data-report-layout-down="${item.attrId}" ${i === relatorioLayoutWorking.length - 1 ? 'disabled' : ''}>↓</button>
+        </div>
+      </div>
+    `;
+        if (attr.tipoCampo === 'numero') {
+            const sumLabel = document.createElement('label');
+            sumLabel.className = 'layout-block-visibility';
+            sumLabel.style.marginTop = '6px';
+            sumLabel.innerHTML = `
+        <input type="checkbox" data-report-layout-total="${item.attrId}" ${relatorioTotalAttrIdsWorking.includes(item.attrId) ? 'checked' : ''} />
+        <span>Somar no total</span>
+      `;
+            const sumInput = sumLabel.querySelector(`[data-report-layout-total="${item.attrId}"]`);
+            sumInput.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    if (!relatorioTotalAttrIdsWorking.includes(item.attrId))
+                        relatorioTotalAttrIdsWorking.push(item.attrId);
+                }
+                else {
+                    relatorioTotalAttrIdsWorking = relatorioTotalAttrIdsWorking.filter((id) => id !== item.attrId);
+                }
+            });
+            sumInput.addEventListener('mousedown', (e) => e.stopPropagation());
+            sumInput.addEventListener('click', (e) => e.stopPropagation());
+            card.appendChild(sumLabel);
+        }
+        card.querySelector(`[data-report-layout-span="${item.attrId}"]`).addEventListener('change', (e) => {
+            updateRelatorioLayoutWorkingSpan(item.attrId, e.target.value);
+            renderRelatorioLayoutCanvas(tipoId, configId);
+        });
+        card.querySelector(`[data-report-layout-up="${item.attrId}"]`).addEventListener('click', () => {
+            moveRelatorioLayoutWorkingItem(item.attrId, -1);
+            renderRelatorioLayoutCanvas(tipoId, configId);
+        });
+        card.querySelector(`[data-report-layout-down="${item.attrId}"]`).addEventListener('click', () => {
+            moveRelatorioLayoutWorkingItem(item.attrId, 1);
+            renderRelatorioLayoutCanvas(tipoId, configId);
+        });
+        card.addEventListener('dragstart', (e) => {
+            relatorioLayoutDragAttrId = item.attrId;
+            card.classList.add('is-dragging');
+            if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/report-layout-attr', item.attrId);
+            }
+        });
+        card.addEventListener('dragend', () => {
+            relatorioLayoutDragAttrId = '';
+            card.classList.remove('is-dragging');
+            grid.querySelectorAll('.layout-item').forEach((el) => el.classList.remove('drag-over'));
+        });
+        card.addEventListener('dragover', (e) => {
+            const dragged = relatorioLayoutDragAttrId || e.dataTransfer?.getData('text/report-layout-attr');
+            if (!dragged || dragged === item.attrId)
+                return;
+            e.preventDefault();
+            card.classList.add('drag-over');
+        });
+        card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+        card.addEventListener('drop', (e) => {
+            e.preventDefault();
+            card.classList.remove('drag-over');
+            const dragged = relatorioLayoutDragAttrId || e.dataTransfer?.getData('text/report-layout-attr');
+            if (!dragged || dragged === item.attrId)
+                return;
+            moveRelatorioLayoutWorkingBefore(dragged, item.attrId);
+            renderRelatorioLayoutCanvas(tipoId, configId);
+        });
+        grid.appendChild(card);
+    }
+    ui.relatorioLayoutCanvas.appendChild(grid);
+}
+// @ts-nocheck
+function renderRelatorioLayoutConfigOptions(tipoId) {
+    const configs = getReportConfigsByTipo(tipoId);
+    const prev = ui.relatorioLayoutConfig.value;
+    ui.relatorioLayoutConfig.innerHTML = '';
+    if (!configs.length) {
+        ui.relatorioLayoutConfig.innerHTML = '<option value="">Sem configuracoes</option>';
+        ui.relatorioLayoutConfig.value = '';
+        return;
+    }
+    for (const cfg of configs) {
+        const opt = document.createElement('option');
+        opt.value = cfg.id;
+        opt.textContent = cfg.nome;
+        if (cfg.id === prev)
+            opt.selected = true;
+        ui.relatorioLayoutConfig.appendChild(opt);
+    }
+    if (!configs.some((c) => c.id === ui.relatorioLayoutConfig.value)) {
+        ui.relatorioLayoutConfig.value = configs[0].id;
+    }
+}
+// @ts-nocheck
+function renderRelatorioLayoutEditor(tipoId) {
+    ui.relatorioLayoutEditor.innerHTML = '';
+    if (!tipoId)
+        return;
+    if (!relatorioCurrentLayout.length) {
+        ui.relatorioLayoutEditor.innerHTML = '<p class="empty">Selecione atributos para montar o layout do relatorio.</p>';
+        return;
+    }
+    const attrs = getAtributosByTipo(tipoId);
+    const attrById = new Map(attrs.map((a) => [a.id, a]));
+    for (let i = 0; i < relatorioCurrentLayout.length; i += 1) {
+        const item = relatorioCurrentLayout[i];
+        const attr = attrById.get(item.attrId);
+        if (!attr)
+            continue;
+        const row = document.createElement('div');
+        row.className = 'relatorio-layout-row';
+        const name = document.createElement('strong');
+        name.textContent = attr.nome;
+        const controls = document.createElement('div');
+        controls.className = 'relatorio-layout-controls';
+        const spanSelect = document.createElement('select');
+        spanSelect.className = 'browser-default';
+        [3, 4, 6, 8, 12].forEach((n) => {
+            const opt = document.createElement('option');
+            opt.value = String(n);
+            opt.textContent = `Largura ${n}`;
+            if (Number(item.colSpan) === n)
+                opt.selected = true;
+            spanSelect.appendChild(opt);
+        });
+        spanSelect.addEventListener('change', () => {
+            updateRelatorioLayoutSpan(item.attrId, spanSelect.value);
+        });
+        const upBtn = document.createElement('button');
+        upBtn.type = 'button';
+        upBtn.className = 'btn-flat btn-small';
+        upBtn.textContent = '↑';
+        upBtn.disabled = i === 0;
+        upBtn.addEventListener('click', () => moveRelatorioLayoutItem(item.attrId, -1));
+        const downBtn = document.createElement('button');
+        downBtn.type = 'button';
+        downBtn.className = 'btn-flat btn-small';
+        downBtn.textContent = '↓';
+        downBtn.disabled = i === relatorioCurrentLayout.length - 1;
+        downBtn.addEventListener('click', () => moveRelatorioLayoutItem(item.attrId, 1));
+        controls.appendChild(spanSelect);
+        controls.appendChild(upBtn);
+        controls.appendChild(downBtn);
+        row.appendChild(name);
+        row.appendChild(controls);
+        ui.relatorioLayoutEditor.appendChild(row);
+    }
+}
+// @ts-nocheck
+function renderRelatorioLayoutPage() {
+    const tipos = getReportTipos();
+    if (!tipos.length) {
+        ui.relatorioLayoutTipo.innerHTML = '<option value="">Sem tipos</option>';
+        ui.relatorioLayoutCanvas.innerHTML = '<p class="empty">Nenhum tipo cadastrado.</p>';
+        ui.relatorioLayoutConfig.innerHTML = '<option value="">Sem configuracoes</option>';
+        return;
+    }
+    const prevTipo = ui.relatorioLayoutTipo.value;
+    if (!ui.relatorioLayoutTipo.options || ui.relatorioLayoutTipo.options.length === 0) {
+        ui.relatorioLayoutTipo.innerHTML = '';
+        for (const tipo of tipos) {
+            const opt = document.createElement('option');
+            opt.value = tipo.id;
+            opt.textContent = tipo.nome || inferTipoNome(tipo.id);
+            ui.relatorioLayoutTipo.appendChild(opt);
+        }
+    }
+    const tipoId = tipos.some((t) => t.id === prevTipo) ? prevTipo : tipos[0].id;
+    ui.relatorioLayoutTipo.value = tipoId;
+    renderRelatorioLayoutConfigOptions(tipoId);
+    renderRelatorioLayoutCanvas(tipoId, ui.relatorioLayoutConfig.value || '');
+}
+// @ts-nocheck
+function renderRelatorioOrdenacaoLista(tipoId) {
+    if (!ui.relatorioOrdenacaoLista)
+        return;
+    ui.relatorioOrdenacaoLista.innerHTML = '';
+    const attrs = getAtributosByTipo(tipoId);
+    const attrById = new Map(attrs.map((a) => [a.id, a]));
+    relatorioOrdenacaoWorking = normalizeRelatorioOrdenacao(relatorioOrdenacaoWorking, tipoId);
+    if (!relatorioOrdenacaoWorking.length) {
+        ui.relatorioOrdenacaoLista.innerHTML = '<li class="collection-item">Sem ordenacao composta.</li>';
+        return;
+    }
+    for (let i = 0; i < relatorioOrdenacaoWorking.length; i += 1) {
+        const item = relatorioOrdenacaoWorking[i];
+        const attr = attrById.get(item.attrId);
+        if (!attr)
+            continue;
+        const li = document.createElement('li');
+        li.className = 'collection-item';
+        li.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <div>
+          <strong>${escapeHtml(attr.nome)}</strong>
+          <small class="grey-text" style="display:block;">${item.direcao === 'desc' ? 'DESC' : 'ASC'}</small>
+        </div>
+        <div class="item-actions">
+          <button type="button" class="btn-flat btn-small" data-sort-toggle="${i}">ASC/DESC</button>
+          <button type="button" class="btn-flat btn-small" data-sort-up="${i}" ${i === 0 ? 'disabled' : ''}>↑</button>
+          <button type="button" class="btn-flat btn-small" data-sort-down="${i}" ${i === relatorioOrdenacaoWorking.length - 1 ? 'disabled' : ''}>↓</button>
+          <button type="button" class="btn-flat btn-small red-text" data-sort-del="${i}">Remover</button>
+        </div>
+      </div>
+    `;
+        li.querySelector(`[data-sort-toggle="${i}"]`).addEventListener('click', () => {
+            relatorioOrdenacaoWorking[i].direcao = relatorioOrdenacaoWorking[i].direcao === 'desc' ? 'asc' : 'desc';
+            renderRelatorioOrdenacaoLista(tipoId);
+        });
+        li.querySelector(`[data-sort-up="${i}"]`).addEventListener('click', () => {
+            if (i === 0)
+                return;
+            const tmp = relatorioOrdenacaoWorking[i - 1];
+            relatorioOrdenacaoWorking[i - 1] = relatorioOrdenacaoWorking[i];
+            relatorioOrdenacaoWorking[i] = tmp;
+            renderRelatorioOrdenacaoLista(tipoId);
+        });
+        li.querySelector(`[data-sort-down="${i}"]`).addEventListener('click', () => {
+            if (i >= relatorioOrdenacaoWorking.length - 1)
+                return;
+            const tmp = relatorioOrdenacaoWorking[i + 1];
+            relatorioOrdenacaoWorking[i + 1] = relatorioOrdenacaoWorking[i];
+            relatorioOrdenacaoWorking[i] = tmp;
+            renderRelatorioOrdenacaoLista(tipoId);
+        });
+        li.querySelector(`[data-sort-del="${i}"]`).addEventListener('click', () => {
+            relatorioOrdenacaoWorking.splice(i, 1);
+            renderRelatorioOrdenacaoLista(tipoId);
+        });
+        ui.relatorioOrdenacaoLista.appendChild(li);
+    }
+}
+// @ts-nocheck
+function renderRelatorioTable() {
+    ui.relatorioTabelaHead.innerHTML = '';
+    ui.relatorioTabelaBody.innerHTML = '';
+    const oldColGroup = ui.relatorioTabela.querySelector('colgroup');
+    if (oldColGroup)
+        oldColGroup.remove();
+    const { columns, rows, tipoNome, colSpans, totalValues } = relatorioLastResult;
+    if (!columns.length) {
+        ui.relatorioResumo.textContent = '';
+        return;
+    }
+    const totalSpan = (Array.isArray(colSpans) && colSpans.length === columns.length
+        ? colSpans
+        : columns.map(() => 6)).reduce((sum, x) => sum + Number(x || 0), 0);
+    const spans = Array.isArray(colSpans) && colSpans.length === columns.length
+        ? colSpans
+        : columns.map(() => 6);
+    if (totalSpan > 0) {
+        const colgroup = document.createElement('colgroup');
+        for (let i = 0; i < columns.length; i += 1) {
+            const col = document.createElement('col');
+            col.style.width = `${(Number(spans[i] || 0) / totalSpan) * 100}%`;
+            colgroup.appendChild(col);
+        }
+        ui.relatorioTabela.insertBefore(colgroup, ui.relatorioTabela.firstChild);
+        ui.relatorioTabela.style.tableLayout = 'fixed';
+        ui.relatorioTabela.style.width = '100%';
+    }
+    const trHead = document.createElement('tr');
+    for (let i = 0; i < columns.length; i += 1) {
+        const col = columns[i];
+        const th = document.createElement('th');
+        th.textContent = col;
+        const span = Number(spans[i] || 0);
+        if (totalSpan > 0 && span > 0)
+            th.style.width = `${(span / totalSpan) * 100}%`;
+        trHead.appendChild(th);
+    }
+    ui.relatorioTabelaHead.appendChild(trHead);
+    for (const row of rows) {
+        const tr = document.createElement('tr');
+        for (const value of row) {
+            const td = document.createElement('td');
+            td.textContent = String(value ?? '');
+            tr.appendChild(td);
+        }
+        ui.relatorioTabelaBody.appendChild(tr);
+    }
+    if (Array.isArray(totalValues) && totalValues.some((v) => String(v || '').trim() !== '')) {
+        const trTotal = document.createElement('tr');
+        const labelIndex = columns.findIndex((_, idx) => String(totalValues[idx] || '').trim() === '');
+        for (let i = 0; i < columns.length; i += 1) {
+            const td = document.createElement('td');
+            const value = String(totalValues[i] ?? '');
+            td.textContent = labelIndex === i ? 'Total' : value;
+            td.style.fontWeight = '700';
+            trTotal.appendChild(td);
+        }
+        ui.relatorioTabelaBody.appendChild(trTotal);
+    }
+    ui.relatorioResumo.textContent = `${tipoNome}: ${rows.length} registro(s)`;
+}
+// @ts-nocheck
 function renderSecaoOptions() {
     const current = ui.atributoSecao.value;
     ui.atributoSecao.innerHTML = '<option value="">Sem secao</option>';
@@ -1924,9 +3749,13 @@ function renderTipoOptions() {
     const prevAtributo = ui.atributoTipo.value;
     const prevDocumento = ui.documentoTipo.value;
     const prevLayout = ui.layoutTipo.value;
+    const prevRelatorio = ui.relatorioTipo.value;
+    const prevRelatorioLayout = ui.relatorioLayoutTipo.value;
     ui.atributoTipo.innerHTML = '';
     ui.documentoTipo.innerHTML = '<option value="">Selecione...</option>';
     ui.layoutTipo.innerHTML = '';
+    ui.relatorioTipo.innerHTML = '';
+    ui.relatorioLayoutTipo.innerHTML = '';
     for (const tipo of state.tipos) {
         const optA = document.createElement('option');
         optA.value = tipo.id;
@@ -1940,6 +3769,14 @@ function renderTipoOptions() {
         optL.value = tipo.id;
         optL.textContent = tipo.nome;
         ui.layoutTipo.appendChild(optL);
+        const optR = document.createElement('option');
+        optR.value = tipo.id;
+        optR.textContent = String(tipo.nome || '').trim() || inferTipoNome(tipo.id) || tipo.id;
+        ui.relatorioTipo.appendChild(optR);
+        const optRL = document.createElement('option');
+        optRL.value = tipo.id;
+        optRL.textContent = String(tipo.nome || '').trim() || inferTipoNome(tipo.id) || tipo.id;
+        ui.relatorioLayoutTipo.appendChild(optRL);
     }
     if (state.tipos.some((t) => t.id === prevAtributo))
         ui.atributoTipo.value = prevAtributo;
@@ -1953,6 +3790,14 @@ function renderTipoOptions() {
         ui.layoutTipo.value = prevLayout;
     else if (state.tipos[0])
         ui.layoutTipo.value = state.tipos[0].id;
+    if (state.tipos.some((t) => t.id === prevRelatorio))
+        ui.relatorioTipo.value = prevRelatorio;
+    else if (state.tipos[0])
+        ui.relatorioTipo.value = state.tipos[0].id;
+    if (state.tipos.some((t) => t.id === prevRelatorioLayout))
+        ui.relatorioLayoutTipo.value = prevRelatorioLayout;
+    else if (state.tipos[0])
+        ui.relatorioLayoutTipo.value = state.tipos[0].id;
 }
 // @ts-nocheck
 function renderTipoSecoes() {
@@ -2002,11 +3847,20 @@ function renderTipos() {
         return;
     }
     for (const tipo of state.tipos) {
+        const cabecalho = String(tipo.cabecalho || '').trim();
+        const rodape = String(tipo.rodape || '').trim();
+        const preview = (text, max = 90) => {
+            if (!text)
+                return '-';
+            return text.length <= max ? text : `${text.slice(0, max - 3)}...`;
+        };
         const li = document.createElement('li');
         li.className = 'collection-item';
         li.innerHTML = `
       <div class="item-content">
         <strong>${escapeHtml(tipo.nome)}</strong>
+        <small><strong>Cabecalho:</strong> ${escapeHtml(preview(cabecalho))}</small>
+        <small><strong>Rodape:</strong> ${escapeHtml(preview(rodape))}</small>
       </div>
       <div class="item-actions">
         <button type="button" class="btn-flat btn-small" data-edit="${tipo.id}">Editar</button>
@@ -2059,6 +3913,35 @@ function resetLayoutForSelectedTipo() {
     refreshMaterializeUI();
 }
 // @ts-nocheck
+function resetRelatorioLayoutEditorConfig() {
+    const tipoId = ui.relatorioLayoutTipo.value;
+    const configId = ui.relatorioLayoutConfig.value;
+    if (!tipoId || !configId) {
+        notify('Selecione tipo e configuracao para resetar layout.');
+        return;
+    }
+    const cfg = (state.reportConfigs || []).find((c) => c.id === configId && c.tipoId === tipoId);
+    if (!cfg) {
+        notify('Configuracao nao encontrada.');
+        return;
+    }
+    cfg.reportLayout = [];
+    cfg.reportBlockOrder = defaultRelatorioBlockOrder();
+    cfg.reportBlockVisibility = normalizeRelatorioBlockVisibility({});
+    cfg.reportFooterMode = 'fixed_bottom';
+    cfg.reportFooterAnchor = 'tabela';
+    cfg.totalAttrIds = [];
+    relatorioTotalAttrIdsWorking = [];
+    relatorioSavedBlockOrder = cfg.reportBlockOrder.map((x) => x);
+    relatorioSavedBlockVisibility = { ...cfg.reportBlockVisibility };
+    relatorioSavedFooterMode = cfg.reportFooterMode;
+    relatorioSavedFooterAnchor = cfg.reportFooterAnchor;
+    saveState();
+    relatorioLayoutWorkingConfigId = '';
+    renderRelatorioLayoutCanvas(tipoId, configId);
+    notify('Layout customizado removido.');
+}
+// @ts-nocheck
 function resetSecaoForm() {
     ui.secaoId.value = '';
     ui.secaoNome.value = '';
@@ -2089,7 +3972,9 @@ function resolveAttrValueForOutput(attr, raw, ctx) {
     const text = String(base);
     if (attr.tipoCampo === 'textarea_template' || attr.tipoCampo === 'texto_placeholder') {
         const resolved = resolveTemplateTextForOutput(text, ctx).trim();
-        return resolved || '-';
+        if (!resolved)
+            return '-';
+        return attr.tipoCampo === 'texto_placeholder' ? resolved.toUpperCase() : resolved;
     }
     return text;
 }
@@ -2111,6 +3996,105 @@ function saveLayoutForSelectedTipo() {
     syncLayoutSectionsForTipo(tipoId);
     saveState();
     notify('Layout salvo.');
+}
+// @ts-nocheck
+function saveRelatorioConfig() {
+    const cfg = collectRelatorioConfig();
+    if (!cfg.tipoId) {
+        notify('Selecione um tipo antes de salvar a configuracao.');
+        return;
+    }
+    if (!cfg.nome) {
+        notify('Informe um nome para a configuracao.');
+        return;
+    }
+    if (!Array.isArray(state.reportConfigs))
+        state.reportConfigs = [];
+    const existing = state.reportConfigs.find((x) => x.tipoId === cfg.tipoId && x.nome.trim().toLowerCase() === cfg.nome.trim().toLowerCase());
+    let savedId = '';
+    if (existing) {
+        existing.selectedAttrIds = cfg.selectedAttrIds;
+        existing.reportLayout = cfg.reportLayout || [];
+        existing.reportBlockOrder = normalizeRelatorioBlockOrder(cfg.reportBlockOrder);
+        existing.reportBlockVisibility = normalizeRelatorioBlockVisibility(cfg.reportBlockVisibility);
+        existing.reportFooterMode = cfg.reportFooterMode === 'after_block' ? 'after_block' : 'fixed_bottom';
+        existing.reportFooterAnchor = ['cabecalho', 'info_geracao', 'tabela'].includes(String(cfg.reportFooterAnchor || ''))
+            ? String(cfg.reportFooterAnchor)
+            : 'tabela';
+        existing.filtroAttrId = cfg.filtroAttrId;
+        existing.filtroOperador = cfg.filtroOperador;
+        existing.filtroValor = cfg.filtroValor;
+        existing.somarNumericos = Boolean(cfg.somarNumericos);
+        existing.totalAttrIds = normalizeRelatorioTotalAttrIds(cfg.totalAttrIds, cfg.tipoId);
+        existing.ordenacao = normalizeRelatorioOrdenacao(cfg.ordenacao, cfg.tipoId);
+        existing.ordenarAttrId = cfg.ordenarAttrId || '';
+        existing.ordenarDirecao = cfg.ordenarDirecao === 'desc' ? 'desc' : 'asc';
+        existing.createdAt = cfg.createdAt;
+        savedId = existing.id;
+    }
+    else {
+        cfg.id = `rptcfg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        state.reportConfigs.push(cfg);
+        savedId = cfg.id;
+    }
+    saveState();
+    renderRelatorioConfigSelectOptions(cfg.tipoId, savedId);
+    ui.relatorioConfigSelect.value = savedId;
+    refreshMaterializeUI();
+    notify('Configuracao de relatorio salva.');
+}
+// @ts-nocheck
+function saveRelatorioLayout() {
+    const tipoId = ui.relatorioTipo.value;
+    if (!tipoId) {
+        notify('Selecione um tipo antes de salvar layout.');
+        return;
+    }
+    const selectedIds = getSelectedRelatorioAttributeIds();
+    if (!selectedIds.length) {
+        notify('Selecione atributos antes de salvar layout.');
+        return;
+    }
+    const selectedSet = new Set(selectedIds);
+    relatorioSavedLayout = (relatorioCurrentLayout || [])
+        .filter((x) => selectedSet.has(x.attrId))
+        .map((x) => ({
+        attrId: x.attrId,
+        colSpan: clampColSpan(x.colSpan || 6),
+    }));
+    notify('Layout do relatorio salvo. Agora a geracao usa esse layout.');
+}
+// @ts-nocheck
+function saveRelatorioLayoutEditorConfig() {
+    const tipoId = ui.relatorioLayoutTipo.value;
+    const configId = ui.relatorioLayoutConfig.value;
+    if (!tipoId || !configId) {
+        notify('Selecione tipo e configuracao para salvar layout.');
+        return;
+    }
+    const cfg = (state.reportConfigs || []).find((c) => c.id === configId && c.tipoId === tipoId);
+    if (!cfg) {
+        notify('Configuracao nao encontrada.');
+        return;
+    }
+    cfg.reportLayout = (relatorioLayoutWorking || []).map((x) => ({
+        attrId: x.attrId,
+        colSpan: clampColSpan(x.colSpan || 6),
+    }));
+    cfg.reportBlockOrder = normalizeRelatorioBlockOrder(relatorioLayoutBlocksWorking);
+    cfg.reportBlockVisibility = normalizeRelatorioBlockVisibility(relatorioLayoutBlockVisibilityWorking);
+    cfg.reportFooterMode = relatorioLayoutFooterModeWorking === 'after_block' ? 'after_block' : 'fixed_bottom';
+    cfg.reportFooterAnchor = ['cabecalho', 'info_geracao', 'tabela'].includes(String(relatorioLayoutFooterAnchorWorking || ''))
+        ? relatorioLayoutFooterAnchorWorking
+        : 'tabela';
+    cfg.totalAttrIds = normalizeRelatorioTotalAttrIds(relatorioTotalAttrIdsWorking, tipoId);
+    cfg.selectedAttrIds = cfg.reportLayout.map((x) => x.attrId);
+    relatorioSavedBlockOrder = cfg.reportBlockOrder.map((x) => x);
+    relatorioSavedBlockVisibility = { ...cfg.reportBlockVisibility };
+    relatorioSavedFooterMode = cfg.reportFooterMode;
+    relatorioSavedFooterAnchor = cfg.reportFooterAnchor;
+    saveState();
+    notify('Layout da configuracao de relatorio salvo.');
 }
 // @ts-nocheck
 function saveState() {
@@ -2218,6 +4202,32 @@ function syncLayoutsForTipo(tipoId) {
     return normalized;
 }
 // @ts-nocheck
+function syncRelatorioLayoutFromSelection(selectedAttrIds, tipoId) {
+    const attrs = getAtributosByTipo(tipoId);
+    const attrMap = new Map(attrs.map((a) => [a.id, a]));
+    const selectedSet = new Set(selectedAttrIds.filter((id) => attrMap.has(id)));
+    const existing = Array.isArray(relatorioCurrentLayout) ? relatorioCurrentLayout : [];
+    // Keep current custom order for items that are still selected.
+    const normalized = existing
+        .filter((item) => selectedSet.has(item.attrId) && attrMap.has(item.attrId))
+        .map((item) => ({
+        attrId: item.attrId,
+        colSpan: clampColSpan(item.colSpan || 6),
+    }));
+    // Append newly selected items at the end without disturbing existing order.
+    for (const id of selectedAttrIds) {
+        if (!selectedSet.has(id))
+            continue;
+        if (normalized.some((x) => x.attrId === id))
+            continue;
+        normalized.push({
+            attrId: id,
+            colSpan: 6,
+        });
+    }
+    relatorioCurrentLayout = normalized;
+}
+// @ts-nocheck
 function syncTabFromRoute() {
     const hash = String(window.location.hash || '').replace(/^#/, '');
     if (!hash)
@@ -2272,6 +4282,20 @@ function updateLayoutSpan(tipoId, attrId, span) {
     if (ui.documentoTipo.value === tipoId)
         renderDocumentoCampos();
     refreshMaterializeUI();
+}
+// @ts-nocheck
+function updateRelatorioLayoutSpan(attrId, spanValue) {
+    const item = (relatorioCurrentLayout || []).find((x) => x.attrId === attrId);
+    if (!item)
+        return;
+    item.colSpan = clampColSpan(spanValue);
+}
+// @ts-nocheck
+function updateRelatorioLayoutWorkingSpan(attrId, value) {
+    const item = (relatorioLayoutWorking || []).find((x) => x.attrId === attrId);
+    if (!item)
+        return;
+    item.colSpan = clampColSpan(value);
 }
 function validateDocumento(tipoId, valores, editingDocId) {
     const errors = [];

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Documentos App - Layout Relatorio</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="grey lighten-4">
+    <nav class="teal darken-2">
+      <div class="nav-wrapper container" style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="brand-logo" style="position:static;transform:none;">Documentos</span>
+        <div>
+          <a href="index.html" class="white-text" style="margin-right:12px;">Tipos</a>
+          <a href="secoes.html" class="white-text" style="margin-right:12px;">Secoes</a>
+          <a href="atributos.html" class="white-text" style="margin-right:12px;">Atributos</a>
+          <a href="documentos.html" class="white-text" style="margin-right:12px;">Documento</a>
+          <a href="layout.html" class="white-text" style="margin-right:12px;">Layout</a>
+          <a href="relatorios.html" class="white-text" style="margin-right:12px;">Relatorios</a>
+          <a href="relatorio-layout.html" class="white-text">Layout Relatorio</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container page-content">
+      <section class="tab-panel" style="display:block;">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">6) Layout de Relatorio (Drag and Drop)</span>
+
+            <div class="row" style="margin-bottom:0;">
+              <div class="input-field col s12 m5">
+                <select id="relatorioLayoutTipo"></select>
+                <label for="relatorioLayoutTipo">Documento Tipo</label>
+              </div>
+              <div class="input-field col s12 m5">
+                <select id="relatorioLayoutConfig"></select>
+                <label for="relatorioLayoutConfig">Configuracao de Relatorio</label>
+              </div>
+              <div class="col s12 m2 layout-reset-wrap" style="padding-top:14px;justify-content:flex-start;">
+                <button id="relatorioLayoutSaveBtn" type="button" class="btn waves-effect waves-light">Salvar</button>
+                <button id="relatorioLayoutResetBtn" type="button" class="btn-flat">Resetar</button>
+              </div>
+            </div>
+
+            <p class="grey-text text-darken-1">Arraste os cards para mudar a ordem e ajuste a largura de cada coluna.</p>
+            <label class="grey-text text-darken-2">Blocos do Relatorio (arrastaveis)</label>
+            <div id="relatorioLayoutBlockCanvas" class="layout-grid-editor"></div>
+            <div class="row" style="margin-bottom:0;">
+              <div class="input-field col s12 m4">
+                <select id="relatorioLayoutFooterMode">
+                  <option value="fixed_bottom">Rodape fixo no final</option>
+                  <option value="after_block">Rodape abaixo de bloco</option>
+                </select>
+                <label for="relatorioLayoutFooterMode">Posicao do Rodape</label>
+              </div>
+              <div class="input-field col s12 m4">
+                <select id="relatorioLayoutFooterAnchor">
+                  <option value="cabecalho">Abaixo do Cabecalho</option>
+                  <option value="info_geracao">Abaixo da Info de geracao</option>
+                  <option value="tabela">Abaixo da Tabela</option>
+                </select>
+                <label for="relatorioLayoutFooterAnchor">Elemento ancora</label>
+              </div>
+            </div>
+            <label class="grey-text text-darken-2">Campos (arrastaveis)</label>
+            <div id="relatorioLayoutCanvas" class="layout-grid-editor"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

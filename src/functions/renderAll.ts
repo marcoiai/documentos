@@ -9,6 +9,7 @@ function renderAll() {
   renderLayoutEditor();
   renderDocumentoCampos();
   renderDocumentos();
+  renderRelatorioBuilder();
+  renderRelatorioLayoutPage();
   refreshMaterializeUI();
 }
-

@@ -49,6 +49,29 @@ interface LayoutItem {
   colSpan: number;
 }
 
+interface ReportConfig {
+  id: string;
+  nome: string;
+  tipoId: string;
+  selectedAttrIds: string[];
+  reportLayout?: LayoutItem[];
+  reportBlockOrder?: string[];
+  reportBlockVisibility?: Record<string, boolean>;
+  reportFooterMode?: 'fixed_bottom' | 'after_block';
+  reportFooterAnchor?: string;
+  incluirCabecalho?: boolean;
+  incluirRodape?: boolean;
+  filtroAttrId: string;
+  filtroOperador: string;
+  filtroValor: string;
+  somarNumericos?: boolean;
+  totalAttrIds?: string[];
+  ordenacao?: Array<{ attrId: string; direcao: 'asc' | 'desc' }>;
+  ordenarAttrId?: string;
+  ordenarDirecao?: 'asc' | 'desc' | string;
+  createdAt: string;
+}
+
 interface AppState {
   tipoCounter: number;
   secaoCounter: number;
@@ -61,6 +84,7 @@ interface AppState {
   layouts: Record<string, LayoutItem[]>;
   layoutSections: Record<string, string[]>;
   tipoSecoes: Record<string, string[]>;
+  reportConfigs: ReportConfig[];
 }
 
 interface SectionGroupItem {

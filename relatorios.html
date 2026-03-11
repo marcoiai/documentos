@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Documentos App - Relatorios</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="grey lighten-4">
+    <nav class="teal darken-2">
+      <div class="nav-wrapper container" style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="brand-logo" style="position:static;transform:none;">Documentos</span>
+        <div>
+          <a href="index.html" class="white-text" style="margin-right:12px;">Tipos</a>
+          <a href="secoes.html" class="white-text" style="margin-right:12px;">Secoes</a>
+          <a href="atributos.html" class="white-text" style="margin-right:12px;">Atributos</a>
+          <a href="documentos.html" class="white-text" style="margin-right:12px;">Documento</a>
+          <a href="layout.html" class="white-text" style="margin-right:12px;">Layout</a>
+          <a href="relatorios.html" class="white-text">Relatorios</a>
+          <a href="relatorio-layout.html" class="white-text">Layout Relatorio</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container page-content">
+      <section class="tab-panel" style="display:block;">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">5) Relatorios</span>
+
+            <div class="row" style="margin-bottom:0;">
+              <div class="input-field col s12 m4">
+                <select id="relatorioTipo"></select>
+                <label for="relatorioTipo">Documento Tipo</label>
+              </div>
+              <div class="input-field col s12 m4">
+                <input id="relatorioConfigNome" type="text" />
+                <label for="relatorioConfigNome">Nome da configuracao</label>
+              </div>
+              <div class="input-field col s12 m4">
+                <select id="relatorioConfigSelect"></select>
+                <label for="relatorioConfigSelect">Configuracao salva</label>
+              </div>
+            </div>
+
+            <div class="action-row">
+              <button id="relatorioSalvarConfigBtn" type="button" class="btn-flat">Salvar Config</button>
+              <button id="relatorioSelecionarConfigBtn" type="button" class="btn-flat">Selecionar Config</button>
+              <button id="relatorioExportConfigBtn" type="button" class="btn-flat">Exportar Config JSON</button>
+            </div>
+
+            <div class="row" style="margin-bottom:0;">
+              <div class="col s12 m8">
+                <label class="grey-text text-darken-2">Atributos (colunas)</label>
+                <div id="relatorioAtributosWrap" class="relatorio-attrs-wrap"></div>
+              </div>
+              <div class="col s12 m4">
+                <div class="input-field">
+                  <select id="relatorioFiltroAtributo"></select>
+                  <label for="relatorioFiltroAtributo">Filtro: atributo</label>
+                </div>
+                <div class="input-field">
+                  <select id="relatorioFiltroOperador">
+                    <option value="contains" selected>Contem</option>
+                    <option value="equals">Igual</option>
+                    <option value="not_equals">Diferente</option>
+                    <option value="empty">Vazio</option>
+                    <option value="not_empty">Preenchido</option>
+                  </select>
+                  <label for="relatorioFiltroOperador">Operador</label>
+                </div>
+                <div class="input-field">
+                  <input id="relatorioFiltroValor" type="text" />
+                  <label for="relatorioFiltroValor">Valor do filtro</label>
+                </div>
+                <div class="input-field">
+                  <select id="relatorioOrdenarAtributo"></select>
+                  <label for="relatorioOrdenarAtributo">Ordenar por</label>
+                </div>
+                <div class="input-field">
+                  <select id="relatorioOrdenarDirecao">
+                    <option value="asc" selected>Crescente (ASC)</option>
+                    <option value="desc">Decrescente (DESC)</option>
+                  </select>
+                  <label for="relatorioOrdenarDirecao">Direcao</label>
+                </div>
+                <div class="action-row" style="margin-top:4px;">
+                  <button id="relatorioOrdenarAdicionarBtn" type="button" class="btn-flat">Adicionar criterio</button>
+                </div>
+                <div id="relatorioOrdenacaoLista" class="collection" style="margin-top:8px;"></div>
+              </div>
+            </div>
+
+            <div class="action-row">
+              <button id="relatorioGerarBtn" type="button" class="btn waves-effect waves-light">Gerar Relatorio</button>
+              <button id="relatorioCsvBtn" type="button" class="btn-flat">Exportar CSV</button>
+              <button id="relatorioPdfBtn" type="button" class="btn-flat">Exportar PDF</button>
+              <label class="relatorio-opt-check" style="margin-left:8px;">
+                <input id="relatorioSomarNumeros" type="checkbox" />
+                <span>Somar colunas numericas</span>
+              </label>
+            </div>
+            <p id="relatorioResumo" class="grey-text text-darken-1" style="margin-top:6px;"></p>
+
+            <div class="relatorio-table-wrap">
+              <table id="relatorioTabela" class="striped responsive-table">
+                <thead id="relatorioTabelaHead"></thead>
+                <tbody id="relatorioTabelaBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="relatorioConfigDialog">
+      <form method="dialog" class="relatorio-dialog-form">
+        <h6>Selecionar Configuracao</h6>
+        <div id="relatorioConfigList" class="collection" style="margin-top:10px;"></div>
+        <div class="action-row" style="justify-content:flex-end;">
+          <button id="relatorioDialogCloseBtn" type="submit" class="btn-flat">Fechar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

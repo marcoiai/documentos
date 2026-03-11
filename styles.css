@@ -294,6 +294,18 @@ body {
   box-shadow: 0 0 0 2px rgba(0, 172, 193, 0.22);
 }
 
+.layout-drag-handle {
+  color: #78909c;
+  margin-bottom: 4px;
+}
+
+.layout-block-visibility {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
 .tipo-secoes-wrap {
   margin-top: 8px;
   margin-bottom: 6px;
@@ -339,4 +351,92 @@ body {
 .btn-large,
 .btn-flat {
   border-radius: 999px;
+}
+
+.relatorio-attrs-wrap {
+  border: 1px solid #cfd8dc;
+  border-radius: 8px;
+  padding: 10px;
+  min-height: 64px;
+  max-height: 260px;
+  overflow: auto;
+  background: #fff;
+}
+
+.relatorio-attrs-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+}
+
+.relatorio-attr-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.relatorio-table-wrap {
+  margin-top: 10px;
+  border: 1px solid #e0e6e9;
+  border-radius: 8px;
+  overflow: auto;
+  background: #fff;
+}
+
+.relatorio-table-wrap table td,
+.relatorio-table-wrap table th {
+  overflow-wrap: anywhere;
+}
+
+.relatorio-layout-editor {
+  margin-top: 8px;
+  border: 1px solid #cfd8dc;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+}
+
+.relatorio-layout-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-bottom: 1px solid #ecf1f3;
+}
+
+.relatorio-layout-row:last-child {
+  border-bottom: 0;
+}
+
+.relatorio-layout-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.relatorio-layout-controls .browser-default {
+  width: 120px;
+  height: 30px;
+}
+
+.relatorio-opt-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#relatorioConfigDialog {
+  border: 1px solid #d8e1e5;
+  border-radius: 10px;
+  width: min(760px, 92vw);
+  padding: 14px;
+}
+
+#relatorioConfigDialog::backdrop {
+  background: rgba(38, 50, 56, 0.35);
+}
+
+.relatorio-dialog-form h6 {
+  margin: 0;
 }

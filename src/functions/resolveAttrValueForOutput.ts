@@ -14,9 +14,9 @@ function resolveAttrValueForOutput(attr, raw, ctx) {
   const text = String(base);
   if (attr.tipoCampo === 'textarea_template' || attr.tipoCampo === 'texto_placeholder') {
     const resolved = resolveTemplateTextForOutput(text, ctx).trim();
-    return resolved || '-';
+    if (!resolved) return '-';
+    return attr.tipoCampo === 'texto_placeholder' ? resolved.toUpperCase() : resolved;
   }
 
   return text;
 }
-

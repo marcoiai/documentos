@@ -24,6 +24,22 @@ function renderDocumentoCampos() {
     return;
   }
 
+  const tipo = state.tipos.find((t) => t.id === tipoId) || null;
+  const placeholderCtx = buildHeaderFooterPlaceholderContext(
+    tipoId,
+    tempDocumentoValores,
+    ui.documentoTitulo.value || ''
+  );
+  const tipoCabecalho = resolveTemplateTextForOutput(tipo?.cabecalho || '', placeholderCtx).trim();
+  const tipoRodape = resolveTemplateTextForOutput(tipo?.rodape || '', placeholderCtx).trim();
+
+  if (tipoCabecalho) {
+    const topBlock = document.createElement('div');
+    topBlock.className = 'doc-section-template';
+    topBlock.textContent = tipoCabecalho;
+    ui.documentoCampos.appendChild(topBlock);
+  }
+
   for (const group of groups) {
     const isSemSecao = group.key === '__sem_secao__';
     const fieldset = document.createElement(isSemSecao ? 'div' : 'fieldset');
@@ -76,6 +92,12 @@ function renderDocumentoCampos() {
     ui.documentoCampos.appendChild(fieldset);
   }
 
+  if (tipoRodape) {
+    const footerBlock = document.createElement('div');
+    footerBlock.className = 'doc-section-template doc-section-footer-template';
+    footerBlock.textContent = `Rodape: ${tipoRodape}`;
+    ui.documentoCampos.appendChild(footerBlock);
+  }
+
   refreshTemplatePreviews();
 }
-

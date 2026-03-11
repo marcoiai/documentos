@@ -7,11 +7,19 @@ function renderTipos() {
   }
 
   for (const tipo of state.tipos) {
+    const cabecalho = String(tipo.cabecalho || '').trim();
+    const rodape = String(tipo.rodape || '').trim();
+    const preview = (text, max = 90) => {
+      if (!text) return '-';
+      return text.length <= max ? text : `${text.slice(0, max - 3)}...`;
+    };
     const li = document.createElement('li');
     li.className = 'collection-item';
     li.innerHTML = `
       <div class="item-content">
         <strong>${escapeHtml(tipo.nome)}</strong>
+        <small><strong>Cabecalho:</strong> ${escapeHtml(preview(cabecalho))}</small>
+        <small><strong>Rodape:</strong> ${escapeHtml(preview(rodape))}</small>
       </div>
       <div class="item-actions">
         <button type="button" class="btn-flat btn-small" data-edit="${tipo.id}">Editar</button>
@@ -25,4 +33,3 @@ function renderTipos() {
 
   renderTipoSecoes();
 }
-
