@@ -40,3 +40,4 @@ let relatorioLastResult = {
 bindEvents();
 renderAll();
 initRouting();
+openPendingEditFromUrl();

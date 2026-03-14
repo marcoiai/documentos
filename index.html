@@ -29,29 +29,8 @@
           <div class="card-content">
             <span class="card-title">0) Documento Tipos</span>
 
-            <form id="tipoForm">
-              <input type="hidden" id="tipoId" />
-              <div class="input-field">
-                <input id="tipoNome" type="text" required />
-                <label for="tipoNome">Nome do tipo</label>
-              </div>
-              <div class="input-field">
-                <textarea id="tipoCabecalho" class="materialize-textarea"></textarea>
-                <label for="tipoCabecalho">Cabecalho (opcional)</label>
-              </div>
-              <div class="input-field">
-                <textarea id="tipoRodape" class="materialize-textarea"></textarea>
-                <label for="tipoRodape">Rodape (opcional)</label>
-              </div>
-              <div class="action-row">
-                <button type="submit" class="btn waves-effect waves-light">Salvar Tipo</button>
-                <button type="button" id="tipoCancelBtn" class="btn-flat">Cancelar</button>
-              </div>
-            </form>
-
-            <div id="tipoSecoesWrap" class="tipo-secoes-wrap">
-              <small class="grey-text">Ao editar um tipo, as seções aparecem aqui.</small>
-              <ul id="tipoSecoesList" class="collection app-list"></ul>
+            <div class="action-row">
+              <button type="button" id="tipoOpenModalBtn" class="btn waves-effect waves-light">Novo Tipo</button>
             </div>
 
             <ul id="tiposList" class="collection app-list"></ul>
@@ -59,6 +38,35 @@
         </div>
       </section>
     </main>
+
+    <div id="tipoModal" class="modal">
+      <div class="modal-content">
+        <h5>Tipo de Documento</h5>
+        <form id="tipoForm">
+          <input type="hidden" id="tipoId" />
+          <div class="input-field">
+            <input id="tipoNome" type="text" required />
+            <label for="tipoNome">Nome do tipo</label>
+          </div>
+          <div class="input-field">
+            <textarea id="tipoCabecalho" class="materialize-textarea"></textarea>
+            <label for="tipoCabecalho">Cabecalho (opcional)</label>
+          </div>
+          <div class="input-field">
+            <textarea id="tipoRodape" class="materialize-textarea"></textarea>
+            <label for="tipoRodape">Rodape (opcional)</label>
+          </div>
+          <div id="tipoSecoesWrap" class="tipo-secoes-wrap">
+            <small class="grey-text">Ao editar um tipo, as seções aparecem aqui.</small>
+            <ul id="tipoSecoesList" class="collection app-list"></ul>
+          </div>
+          <div class="action-row">
+            <button type="submit" class="btn waves-effect waves-light">Salvar Tipo</button>
+            <button type="button" id="tipoCancelBtn" class="btn-flat">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

@@ -4,6 +4,7 @@ function editAtributo(attrId) {
   if (!attr) return;
   ui.atributoId.value = attr.id;
   ui.atributoTipo.value = attr.tipoId;
+  renderSecaoOptions();
   ui.atributoNome.value = attr.nome;
   ui.atributoTipoCampo.value = attr.tipoCampo;
   ui.atributoSecao.value = attr.secaoId || '';
@@ -14,5 +15,5 @@ function editAtributo(attrId) {
   toggleAtributoTemplateConfig();
   refreshMaterializeUI();
   renderAtributos();
+  openAppModal(ui.atributoModal);
 }
-

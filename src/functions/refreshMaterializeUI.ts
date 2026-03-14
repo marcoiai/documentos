@@ -2,6 +2,12 @@
 function refreshMaterializeUI() {
   if (!window.M) return;
 
+  document.querySelectorAll('.modal').forEach((el) => {
+    const modalInstance = M.Modal.getInstance(el);
+    if (modalInstance) modalInstance.destroy();
+  });
+  M.Modal.init(document.querySelectorAll('.modal'));
+
   document.querySelectorAll('select').forEach((el) => {
     const selectInstance = M.FormSelect.getInstance(el);
     if (selectInstance) selectInstance.destroy();
@@ -19,4 +25,3 @@ function refreshMaterializeUI() {
     if (M.textareaAutoResize) M.textareaAutoResize(el);
   });
 }
-

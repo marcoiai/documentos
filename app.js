@@ -9,6 +9,8 @@ const ui = {
     tipoCabecalho: document.getElementById('tipoCabecalho'),
     tipoRodape: document.getElementById('tipoRodape'),
     tipoCancelBtn: document.getElementById('tipoCancelBtn'),
+    tipoOpenModalBtn: document.getElementById('tipoOpenModalBtn'),
+    tipoModal: document.getElementById('tipoModal'),
     tipoSecoesWrap: document.getElementById('tipoSecoesWrap'),
     tipoSecoesList: document.getElementById('tipoSecoesList'),
     tiposList: document.getElementById('tiposList'),
@@ -19,6 +21,8 @@ const ui = {
     secaoCabecalho: document.getElementById('secaoCabecalho'),
     secaoRodape: document.getElementById('secaoRodape'),
     secaoCancelBtn: document.getElementById('secaoCancelBtn'),
+    secaoOpenModalBtn: document.getElementById('secaoOpenModalBtn'),
+    secaoModal: document.getElementById('secaoModal'),
     secoesList: document.getElementById('secoesList'),
     // atributos
     atributoForm: document.getElementById('atributoForm'),
@@ -33,6 +37,8 @@ const ui = {
     atributoPeso: document.getElementById('atributoPeso'),
     atributoMascara: document.getElementById('atributoMascara'),
     atributoCancelBtn: document.getElementById('atributoCancelBtn'),
+    atributoOpenModalBtn: document.getElementById('atributoOpenModalBtn'),
+    atributoModal: document.getElementById('atributoModal'),
     atributosList: document.getElementById('atributosList'),
     // layout
     layoutTipo: document.getElementById('layoutTipo'),
@@ -46,6 +52,8 @@ const ui = {
     documentoTipo: document.getElementById('documentoTipo'),
     documentoCampos: document.getElementById('documentoCampos'),
     documentoCancelBtn: document.getElementById('documentoCancelBtn'),
+    documentoOpenModalBtn: document.getElementById('documentoOpenModalBtn'),
+    documentoModal: document.getElementById('documentoModal'),
     documentosList: document.getElementById('documentosList'),
     // relatorios
     relatorioTipo: document.getElementById('relatorioTipo'),
@@ -126,6 +134,131 @@ let relatorioLastResult = {
 bindEvents();
 renderAll();
 initRouting();
+openPendingEditFromUrl();
+// @ts-nocheck
+(function initMuiBridge() {
+    const listeners = [];
+    function clone(value) {
+        return JSON.parse(JSON.stringify(value));
+    }
+    function emitChange() {
+        listeners.slice().forEach((listener) => {
+            try {
+                listener();
+            }
+            catch (err) {
+                console.warn('[mui-bridge] listener failed', err);
+            }
+        });
+    }
+    function getTipos() {
+        return state.tipos.map((tipo) => ({
+            ...clone(tipo),
+            secoes: getSecoesForTipo(tipo.id).map((secao) => clone(secao)),
+        }));
+    }
+    function getSecoes() {
+        return state.secoes.map((secao) => clone(secao));
+    }
+    function saveTipo(payload) {
+        const nome = String(payload?.nome || '').trim();
+        if (!nome) {
+            notify('Informe um nome para o tipo.');
+            return { ok: false };
+        }
+        const cabecalho = String(payload?.cabecalho || '').trim();
+        const rodape = String(payload?.rodape || '').trim();
+        const requestedSecaoIds = Array.isArray(payload?.secaoIds) ? payload.secaoIds.map((id) => String(id)) : [];
+        const validSecaoIds = requestedSecaoIds.filter((id, index) => (state.secoes.some((secao) => secao.id === id) && requestedSecaoIds.indexOf(id) === index));
+        let tipoId = String(payload?.id || '').trim();
+        if (tipoId) {
+            const tipo = state.tipos.find((item) => item.id === tipoId);
+            if (!tipo) {
+                notify('Tipo nao encontrado.');
+                return { ok: false };
+            }
+            tipo.nome = nome;
+            tipo.cabecalho = cabecalho;
+            tipo.rodape = rodape;
+        }
+        else {
+            tipoId = makeId('tipo', 'tipoCounter');
+            state.tipos.push({ id: tipoId, nome, cabecalho, rodape });
+        }
+        const currentSecaoIds = getSecoesForTipo(tipoId).map((secao) => secao.id);
+        const nextSecaoIds = Array.isArray(payload?.secaoIds)
+            ? validSecaoIds
+            : (currentSecaoIds.length > 0 ? currentSecaoIds : state.secoes.map((secao) => secao.id));
+        const removedSecaoIds = currentSecaoIds.filter((id) => !nextSecaoIds.includes(id));
+        if (removedSecaoIds.length > 0) {
+            state.atributos
+                .filter((atributo) => atributo.tipoId === tipoId && removedSecaoIds.includes(atributo.secaoId))
+                .forEach((atributo) => {
+                atributo.secaoId = '';
+            });
+        }
+        state.tipoSecoes[tipoId] = nextSecaoIds;
+        syncLayoutSectionsForTipo(tipoId);
+        saveState();
+        renderAll();
+        return { ok: true, tipoId };
+    }
+    function subscribe(listener) {
+        if (typeof listener !== 'function')
+            return () => { };
+        listeners.push(listener);
+        return () => {
+            const index = listeners.indexOf(listener);
+            if (index >= 0)
+                listeners.splice(index, 1);
+        };
+    }
+    window.documentosApp = {
+        ...(window.documentosApp || {}),
+        __emitChange: emitChange,
+        subscribe,
+        getTipos,
+        getSecoes,
+        saveTipo,
+        deleteTipo: (tipoId) => deleteTipo(tipoId),
+        focusSecao: (secaoId) => focusSecaoCard(secaoId),
+        notify: (message) => notify(message),
+    };
+})();
+// @ts-nocheck
+function addRelatorioLayoutImageBlock() {
+    const tipoId = ui.relatorioLayoutTipo.value;
+    const configId = ui.relatorioLayoutConfig.value;
+    if (!tipoId || !configId) {
+        notify('Selecione tipo e configuracao para adicionar imagem.');
+        return;
+    }
+    const key = newRelatorioBlockImageKey();
+    relatorioLayoutBlocksWorking = normalizeRelatorioBlockOrder([...(relatorioLayoutBlocksWorking || []), key]);
+    relatorioLayoutBlockVisibilityWorking[key] = true;
+    relatorioLayoutBlockImagesWorking[key] = {
+        src: '',
+        width: 260,
+        height: null,
+        align: 'center',
+        caption: '',
+    };
+    renderRelatorioLayoutBlockCanvas(tipoId, configId);
+}
+// @ts-nocheck
+function addRelatorioLayoutSpacer() {
+    const tipoId = ui.relatorioLayoutTipo.value;
+    const configId = ui.relatorioLayoutConfig.value;
+    if (!tipoId || !configId) {
+        notify('Selecione tipo e configuracao para adicionar espacador.');
+        return;
+    }
+    const key = newRelatorioBlockSpacerKey();
+    relatorioLayoutBlocksWorking = normalizeRelatorioBlockOrder([...(relatorioLayoutBlocksWorking || []), key]);
+    relatorioLayoutBlockVisibilityWorking[key] = true;
+    relatorioLayoutBlockSpacerHeightsWorking[key] = 24;
+    renderRelatorioLayoutBlockCanvas(tipoId, configId);
+}
 // @ts-nocheck
 function applyDocumentoFieldErrors(errors) {
     for (const error of errors) {
@@ -204,21 +337,26 @@ function applyRelatorioConfig(config) {
 function bindEvents() {
     ui.tipoForm.addEventListener('submit', onTipoSubmit);
     ui.tipoCancelBtn.addEventListener('click', resetTipoForm);
+    ui.tipoOpenModalBtn.addEventListener('click', () => openAppModal(ui.tipoModal));
     ui.secaoForm.addEventListener('submit', onSecaoSubmit);
     ui.secaoCancelBtn.addEventListener('click', resetSecaoForm);
+    ui.secaoOpenModalBtn.addEventListener('click', () => openAppModal(ui.secaoModal));
     ui.atributoForm.addEventListener('submit', onAtributoSubmit);
     ui.atributoTipo.addEventListener('change', () => {
         renderSecaoOptions();
         renderAtributos();
+        refreshMaterializeUI();
     });
     ui.atributoTipoCampo.addEventListener('change', toggleAtributoTemplateConfig);
     ui.atributoCancelBtn.addEventListener('click', resetAtributoForm);
+    ui.atributoOpenModalBtn.addEventListener('click', () => openAppModal(ui.atributoModal));
     ui.layoutTipo.addEventListener('change', renderLayoutEditor);
     ui.layoutSaveBtn.addEventListener('click', saveLayoutForSelectedTipo);
     ui.layoutResetBtn.addEventListener('click', resetLayoutForSelectedTipo);
     ui.documentoForm.addEventListener('submit', onDocumentoSubmit);
     ui.documentoTipo.addEventListener('change', onDocumentoTipoChange);
     ui.documentoCancelBtn.addEventListener('click', resetDocumentoForm);
+    ui.documentoOpenModalBtn.addEventListener('click', () => openAppModal(ui.documentoModal));
     ui.documentoTitulo.addEventListener('input', () => clearFieldError(ui.documentoTitulo));
     ui.documentoTipo.addEventListener('change', () => clearFieldError(ui.documentoTipo));
     ui.documentoForm.addEventListener('input', () => refreshTemplatePreviews());
@@ -490,6 +628,13 @@ function clampColSpan(value) {
     return Math.max(1, Math.min(12, Math.round(n)));
 }
 // @ts-nocheck
+function clampRelatorioSpacerHeight(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n))
+        return 24;
+    return Math.max(4, Math.min(240, Math.floor(n)));
+}
+// @ts-nocheck
 function clearDocumentoFieldErrors() {
     clearFieldError(ui.documentoTitulo);
     clearFieldError(ui.documentoTipo);
@@ -510,6 +655,24 @@ function clearFieldError(field) {
     const messageEl = container.querySelector('.field-error-text');
     if (messageEl)
         messageEl.remove();
+}
+// @ts-nocheck
+function closeAppModal(modalEl) {
+    if (!modalEl)
+        return;
+    try {
+        if (window.M && M.Modal) {
+            const instance = M.Modal.getInstance(modalEl);
+            if (instance && instance.close) {
+                instance.close();
+                return;
+            }
+        }
+    }
+    catch { }
+    modalEl.classList.remove('open');
+    modalEl.style.display = 'none';
+    modalEl.setAttribute('aria-hidden', 'true');
 }
 // @ts-nocheck
 function closeRelatorioConfigDialog() {
@@ -686,6 +849,7 @@ function editAtributo(attrId) {
         return;
     ui.atributoId.value = attr.id;
     ui.atributoTipo.value = attr.tipoId;
+    renderSecaoOptions();
     ui.atributoNome.value = attr.nome;
     ui.atributoTipoCampo.value = attr.tipoCampo;
     ui.atributoSecao.value = attr.secaoId || '';
@@ -696,6 +860,7 @@ function editAtributo(attrId) {
     toggleAtributoTemplateConfig();
     refreshMaterializeUI();
     renderAtributos();
+    openAppModal(ui.atributoModal);
 }
 // @ts-nocheck
 function editDocumento(docId) {
@@ -709,6 +874,8 @@ function editDocumento(docId) {
     tempDocumentoPdfFlags = { ...(doc.pdfVisivel || {}) };
     refreshMaterializeUI();
     renderDocumentoCampos();
+    refreshMaterializeUI();
+    openAppModal(ui.documentoModal);
 }
 // @ts-nocheck
 function editSecao(secaoId) {
@@ -720,6 +887,7 @@ function editSecao(secaoId) {
     ui.secaoCabecalho.value = sec.cabecalho || '';
     ui.secaoRodape.value = sec.rodape || '';
     refreshMaterializeUI();
+    openAppModal(ui.secaoModal);
 }
 // @ts-nocheck
 function editTipo(tipoId) {
@@ -732,6 +900,7 @@ function editTipo(tipoId) {
     ui.tipoRodape.value = tipo.rodape || '';
     renderTipoSecoes();
     refreshMaterializeUI();
+    openAppModal(ui.tipoModal);
 }
 // @ts-nocheck
 function escapeCsvValue(value) {
@@ -1147,9 +1316,12 @@ function extractMaskPayload(value, mask) {
 }
 // @ts-nocheck
 function focusSecaoCard(secaoId) {
+    if (!(ui.secaoModal instanceof Element)) {
+        window.location.href = `secoes.html?editSecao=${encodeURIComponent(secaoId)}`;
+        return;
+    }
     focusedSecaoId = secaoId;
-    openTab('tab-secoes');
-    renderSecoes();
+    editSecao(secaoId);
 }
 // @ts-nocheck
 function formatCurrentDateBr() {
@@ -1517,6 +1689,18 @@ function isAttributeValueFilled(attr, value) {
     if (value === null || value === undefined)
         return false;
     return String(value).trim() !== '';
+}
+// @ts-nocheck
+function isRelatorioBlockImageKey(key) {
+    return String(key || '').startsWith('__block_image__');
+}
+// @ts-nocheck
+function isRelatorioBlockSpacerKey(key) {
+    return String(key || '').startsWith('__block_spacer__');
+}
+// @ts-nocheck
+function isRelatorioSpacerId(attrId) {
+    return String(attrId || '').startsWith('__spacer__');
 }
 // @ts-nocheck
 function isSecaoLinkedToTipo(tipoId, secaoId) {
@@ -1931,6 +2115,14 @@ function moveSectionAttributesToSection(tipoId, sourceSectionKey, targetSectionK
     notify('Secao movida para outra secao.');
 }
 // @ts-nocheck
+function newRelatorioBlockImageKey() {
+    return `__block_image__${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+}
+// @ts-nocheck
+function newRelatorioBlockSpacerKey() {
+    return `__block_spacer__${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+}
+// @ts-nocheck
 function normalizePlaceholderKey(text) {
     return String(text || '')
         .normalize('NFD')
@@ -1938,6 +2130,38 @@ function normalizePlaceholderKey(text) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '_')
         .replace(/^_+|_+$/g, '');
+}
+// @ts-nocheck
+function clampRelatorioImageWidth(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n))
+        return 260;
+    return Math.max(40, Math.min(520, Math.floor(n)));
+}
+function clampRelatorioImageHeight(value) {
+    if (value === null || value === undefined || value === '')
+        return null;
+    const n = Number(value);
+    if (!Number.isFinite(n))
+        return null;
+    return Math.max(20, Math.min(700, Math.floor(n)));
+}
+function normalizeRelatorioBlockImages(raw, order = []) {
+    const normalized = {};
+    for (const key of Array.isArray(order) ? order : []) {
+        if (!isRelatorioBlockImageKey(key))
+            continue;
+        const cfg = raw?.[key] || {};
+        const align = ['left', 'center', 'right'].includes(String(cfg.align || '')) ? String(cfg.align) : 'center';
+        normalized[key] = {
+            src: String(cfg.src || ''),
+            width: clampRelatorioImageWidth(cfg.width),
+            height: clampRelatorioImageHeight(cfg.height),
+            align,
+            caption: String(cfg.caption || ''),
+        };
+    }
+    return normalized;
 }
 // @ts-nocheck
 function normalizeRelatorioBlockOrder(order) {
@@ -1953,6 +2177,16 @@ function normalizeRelatorioBlockOrder(order) {
     for (const key of defaultRelatorioBlockOrder()) {
         if (!normalized.includes(key))
             normalized.push(key);
+    }
+    return normalized;
+}
+// @ts-nocheck
+function normalizeRelatorioBlockSpacerHeights(raw, order = []) {
+    const normalized = {};
+    for (const key of Array.isArray(order) ? order : []) {
+        if (!isRelatorioBlockSpacerKey(key))
+            continue;
+        normalized[key] = clampRelatorioSpacerHeight(raw?.[key]);
     }
     return normalized;
 }
@@ -2053,8 +2287,13 @@ function onAtributoSubmit(e) {
     }
     const peso = pesoRaw === '' ? null : Number(pesoRaw);
     const editId = ui.atributoId.value;
-    const linkedSecoes = getSecoesForTipo(tipoId).map((s) => s.id);
-    const safeSecaoId = secaoId && linkedSecoes.includes(secaoId) ? secaoId : '';
+    if (secaoId) {
+        const linkedSecoes = getSecoesForTipo(tipoId).map((s) => s.id);
+        if (!linkedSecoes.includes(secaoId)) {
+            state.tipoSecoes[tipoId] = Array.from(new Set([...linkedSecoes, secaoId]));
+        }
+    }
+    const safeSecaoId = secaoId && state.secoes.some((s) => s.id === secaoId) ? secaoId : '';
     if (editId) {
         const attr = state.atributos.find((a) => a.id === editId);
         if (!attr)
@@ -2277,6 +2516,52 @@ function onTipoSubmit(e) {
     renderAll();
 }
 // @ts-nocheck
+function openAppModal(modalEl) {
+    if (!modalEl)
+        return;
+    try {
+        if (window.M && M.Modal) {
+            const instance = M.Modal.getInstance(modalEl) || M.Modal.init(modalEl);
+            if (instance && instance.open) {
+                instance.open();
+                return;
+            }
+        }
+    }
+    catch { }
+    // Fallback if Materialize modal instance is unavailable.
+    modalEl.style.display = 'block';
+    modalEl.classList.add('open');
+    modalEl.setAttribute('aria-hidden', 'false');
+}
+// @ts-nocheck
+function openPendingEditFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const editTipoId = params.get('editTipo');
+    if (editTipoId && ui.tipoModal instanceof Element) {
+        editTipo(editTipoId);
+        params.delete('editTipo');
+    }
+    const editSecaoId = params.get('editSecao');
+    if (editSecaoId && ui.secaoModal instanceof Element) {
+        editSecao(editSecaoId);
+        params.delete('editSecao');
+    }
+    const editAtributoId = params.get('editAtributo');
+    if (editAtributoId && ui.atributoModal instanceof Element) {
+        editAtributo(editAtributoId);
+        params.delete('editAtributo');
+    }
+    const editDocumentoId = params.get('editDocumento');
+    if (editDocumentoId && ui.documentoModal instanceof Element) {
+        editDocumento(editDocumentoId);
+        params.delete('editDocumento');
+    }
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash || ''}`;
+    history.replaceState(null, '', nextUrl);
+}
+// @ts-nocheck
 function openRelatorioConfigDialog() {
     const dialog = ui.relatorioConfigDialog;
     if (!dialog || typeof dialog.showModal !== 'function') {
@@ -2385,9 +2670,60 @@ async function postDocumentoPayloadToApi(payload) {
     return { sent: true };
 }
 // @ts-nocheck
+async function pullStateSnapshotFromApi() {
+    if (!APP_STATE_API_URL)
+        return { loaded: false, reason: 'url_not_configured' };
+    const url = APP_STATE_API_URL.includes('?')
+        ? `${APP_STATE_API_URL}&scope=default`
+        : `${APP_STATE_API_URL}?scope=default`;
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(`Erro ao carregar estado da API (${response.status}): ${text}`);
+    }
+    const data = await response.json();
+    if (!data || typeof data !== 'object' || !data.payload || typeof data.payload !== 'object') {
+        return { loaded: false, reason: 'empty_payload' };
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data.payload));
+    const normalized = loadState();
+    Object.assign(state, normalized);
+    return { loaded: true };
+}
+// @ts-nocheck
+async function pushStateSnapshotToApi() {
+    if (!APP_STATE_API_URL)
+        return { sent: false, reason: 'url_not_configured' };
+    const response = await fetch(APP_STATE_API_URL, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+        },
+        body: JSON.stringify({
+            scope: 'default',
+            payload: JSON.parse(JSON.stringify(state)),
+        }),
+    });
+    if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(`Erro ao salvar estado na API (${response.status}): ${text}`);
+    }
+    return { sent: true };
+}
+// @ts-nocheck
 function refreshMaterializeUI() {
     if (!window.M)
         return;
+    document.querySelectorAll('.modal').forEach((el) => {
+        const modalInstance = M.Modal.getInstance(el);
+        if (modalInstance)
+            modalInstance.destroy();
+    });
+    M.Modal.init(document.querySelectorAll('.modal'));
     document.querySelectorAll('select').forEach((el) => {
         const selectInstance = M.FormSelect.getInstance(el);
         if (selectInstance)
@@ -2495,18 +2831,8 @@ function renderDocumentoCampos() {
         ui.documentoCampos.innerHTML = '<p class="empty">Selecione o tipo para montar os campos.</p>';
         return;
     }
-    const isEditingDocumento = Boolean(ui.documentoId.value);
     const groups = buildSectionGroupsForTipo(tipoId, { includeEmptySections: true })
-        .filter((group) => group.items.length > 0)
-        .filter((group) => {
-        if (!isEditingDocumento)
-            return true;
-        return group.items.some((item) => {
-            const attr = item.attr;
-            const value = tempDocumentoValores[attr.id];
-            return isAttributeValueFilled(attr, value);
-        });
-    });
+        .filter((group) => group.items.length > 0);
     if (groups.length === 0) {
         ui.documentoCampos.innerHTML = '<p class="empty">Sem atributos para este tipo.</p>';
         return;
@@ -3240,6 +3566,34 @@ function renderRelatorioConfigSelectOptions(tipoId, preferredId = '') {
     }
 }
 // @ts-nocheck
+function renderRelatorioFiltroDataCamposOptions(tipoId) {
+    const dateAttrs = getAtributosByTipo(tipoId).filter((a) => a.tipoCampo === 'data');
+    const prevDe = String(ui.relatorioFiltroDataCampoDe?.value || '');
+    const prevAte = String(ui.relatorioFiltroDataCampoAte?.value || '');
+    ui.relatorioFiltroDataCampoDe.innerHTML = '<option value="">Sem campo</option>';
+    ui.relatorioFiltroDataCampoAte.innerHTML = '<option value="">Sem campo</option>';
+    for (const attr of dateAttrs) {
+        const optDe = document.createElement('option');
+        optDe.value = attr.id;
+        optDe.textContent = attr.nome;
+        if (attr.id === prevDe)
+            optDe.selected = true;
+        ui.relatorioFiltroDataCampoDe.appendChild(optDe);
+        const optAte = document.createElement('option');
+        optAte.value = attr.id;
+        optAte.textContent = attr.nome;
+        if (attr.id === prevAte)
+            optAte.selected = true;
+        ui.relatorioFiltroDataCampoAte.appendChild(optAte);
+    }
+    if (!dateAttrs.some((a) => a.id === ui.relatorioFiltroDataCampoDe.value)) {
+        ui.relatorioFiltroDataCampoDe.value = '';
+    }
+    if (!dateAttrs.some((a) => a.id === ui.relatorioFiltroDataCampoAte.value)) {
+        ui.relatorioFiltroDataCampoAte.value = '';
+    }
+}
+// @ts-nocheck
 function renderRelatorioLayoutBlockCanvas(tipoId, configId) {
     ui.relatorioLayoutBlockCanvas.innerHTML = '';
     if (!configId)
@@ -3691,14 +4045,21 @@ function renderSecaoOptions() {
     const current = ui.atributoSecao.value;
     ui.atributoSecao.innerHTML = '<option value="">Sem secao</option>';
     const tipoId = ui.atributoTipo.value;
-    const secoes = tipoId ? getSecoesForTipo(tipoId) : [];
+    const linkedIds = new Set(tipoId ? getSecoesForTipo(tipoId).map((sec) => sec.id) : []);
+    const secoes = [...state.secoes].sort((a, b) => {
+        const aLinked = linkedIds.has(a.id) ? 0 : 1;
+        const bLinked = linkedIds.has(b.id) ? 0 : 1;
+        if (aLinked !== bLinked)
+            return aLinked - bLinked;
+        return String(a.nome || '').localeCompare(String(b.nome || ''));
+    });
     for (const sec of secoes) {
         const opt = document.createElement('option');
         opt.value = sec.id;
-        opt.textContent = sec.nome;
+        opt.textContent = linkedIds.has(sec.id) ? sec.nome : `${sec.nome} (fora do tipo)`;
         ui.atributoSecao.appendChild(opt);
     }
-    if (current === '' || secoes.some((s) => s.id === current)) {
+    if (current === '' || state.secoes.some((s) => s.id === current)) {
         ui.atributoSecao.value = current;
     }
 }
@@ -3884,6 +4245,7 @@ function resetAtributoForm() {
     ui.atributoMascara.value = '';
     ui.atributoTemplateTexto.value = '';
     toggleAtributoTemplateConfig();
+    closeAppModal(ui.atributoModal);
 }
 // Documentos CRUD
 // @ts-nocheck
@@ -3896,6 +4258,7 @@ function resetDocumentoForm() {
     clearDocumentoFieldErrors();
     renderDocumentoCampos();
     refreshTemplatePreviews();
+    closeAppModal(ui.documentoModal);
 }
 // @ts-nocheck
 function resetLayoutForSelectedTipo() {
@@ -3947,6 +4310,7 @@ function resetSecaoForm() {
     ui.secaoNome.value = '';
     ui.secaoCabecalho.value = '';
     ui.secaoRodape.value = '';
+    closeAppModal(ui.secaoModal);
 }
 // Atributos CRUD
 // @ts-nocheck
@@ -3956,6 +4320,7 @@ function resetTipoForm() {
     ui.tipoCabecalho.value = '';
     ui.tipoRodape.value = '';
     renderTipoSecoes();
+    closeAppModal(ui.tipoModal);
 }
 // Secoes CRUD
 // @ts-nocheck
@@ -4282,6 +4647,50 @@ function updateLayoutSpan(tipoId, attrId, span) {
     if (ui.documentoTipo.value === tipoId)
         renderDocumentoCampos();
     refreshMaterializeUI();
+}
+// @ts-nocheck
+function isRelatorioDateOperator(operador) {
+    return ['date_on', 'date_from', 'date_to', 'date_between'].includes(String(operador || ''));
+}
+function updateRelatorioFiltroUiByAttr() {
+    const tipoId = String(ui.relatorioTipo?.value || '');
+    const filtroAttrId = String(ui.relatorioFiltroAtributo?.value || '');
+    const attr = getAtributosByTipo(tipoId).find((a) => a.id === filtroAttrId);
+    const isDateAttr = attr?.tipoCampo === 'data';
+    const operador = String(ui.relatorioFiltroOperador?.value || 'contains');
+    const dataModo = String(ui.relatorioFiltroDataModo?.value || 'valor');
+    const valueWrap = ui.relatorioFiltroValor?.closest?.('.input-field');
+    if (isDateAttr) {
+        renderRelatorioFiltroDataCamposOptions(tipoId);
+        const showDataCampos = operador === 'date_between';
+        const useCampos = showDataCampos && dataModo === 'campos';
+        if (valueWrap)
+            valueWrap.style.display = 'none';
+        if (ui.relatorioFiltroDataWrap)
+            ui.relatorioFiltroDataWrap.style.display = useCampos ? 'none' : 'flex';
+        if (ui.relatorioFiltroDataCamposWrap)
+            ui.relatorioFiltroDataCamposWrap.style.display = showDataCampos ? '' : 'none';
+        if (!isRelatorioDateOperator(operador) && operador !== 'empty' && operador !== 'not_empty') {
+            ui.relatorioFiltroOperador.value = 'date_between';
+        }
+        return;
+    }
+    if (valueWrap)
+        valueWrap.style.display = '';
+    if (ui.relatorioFiltroDataWrap)
+        ui.relatorioFiltroDataWrap.style.display = 'none';
+    if (ui.relatorioFiltroDataCamposWrap)
+        ui.relatorioFiltroDataCamposWrap.style.display = 'none';
+    if (isRelatorioDateOperator(operador)) {
+        ui.relatorioFiltroOperador.value = 'contains';
+    }
+}
+// @ts-nocheck
+function updateRelatorioLayoutSpacerHeight(attrId, value) {
+    const item = (relatorioLayoutWorking || []).find((x) => x.attrId === attrId);
+    if (!item || !isRelatorioSpacerId(attrId))
+        return;
+    item.spacerHeight = clampRelatorioSpacerHeight(value);
 }
 // @ts-nocheck
 function updateRelatorioLayoutSpan(attrId, spanValue) {

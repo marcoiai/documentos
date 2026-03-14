@@ -5,6 +5,7 @@ function resetTipoForm() {
   ui.tipoCabecalho.value = '';
   ui.tipoRodape.value = '';
   renderTipoSecoes();
+  closeAppModal(ui.tipoModal);
 }
 
 // Secoes CRUD

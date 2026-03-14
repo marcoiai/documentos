@@ -8,5 +8,5 @@ function editTipo(tipoId) {
   ui.tipoRodape.value = tipo.rodape || '';
   renderTipoSecoes();
   refreshMaterializeUI();
+  openAppModal(ui.tipoModal);
 }
-

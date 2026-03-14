@@ -10,5 +10,6 @@ function editDocumento(docId) {
   tempDocumentoPdfFlags = { ...(doc.pdfVisivel || {}) };
   refreshMaterializeUI();
   renderDocumentoCampos();
+  refreshMaterializeUI();
+  openAppModal(ui.documentoModal);
 }
-

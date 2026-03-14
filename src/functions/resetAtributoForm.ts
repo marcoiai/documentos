@@ -9,6 +9,7 @@ function resetAtributoForm() {
   ui.atributoMascara.value = '';
   ui.atributoTemplateTexto.value = '';
   toggleAtributoTemplateConfig();
+  closeAppModal(ui.atributoModal);
 }
 
 // Documentos CRUD

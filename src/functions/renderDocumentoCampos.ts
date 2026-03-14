@@ -8,17 +8,8 @@ function renderDocumentoCampos() {
     return;
   }
 
-  const isEditingDocumento = Boolean(ui.documentoId.value);
   const groups = buildSectionGroupsForTipo(tipoId, { includeEmptySections: true })
-    .filter((group) => group.items.length > 0)
-    .filter((group) => {
-      if (!isEditingDocumento) return true;
-      return group.items.some((item) => {
-        const attr = item.attr;
-        const value = tempDocumentoValores[attr.id];
-        return isAttributeValueFilled(attr, value);
-      });
-    });
+    .filter((group) => group.items.length > 0);
   if (groups.length === 0) {
     ui.documentoCampos.innerHTML = '<p class="empty">Sem atributos para este tipo.</p>';
     return;

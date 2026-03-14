@@ -10,6 +10,8 @@ const ui = {
   tipoCabecalho: document.getElementById('tipoCabecalho'),
   tipoRodape: document.getElementById('tipoRodape'),
   tipoCancelBtn: document.getElementById('tipoCancelBtn'),
+  tipoOpenModalBtn: document.getElementById('tipoOpenModalBtn'),
+  tipoModal: document.getElementById('tipoModal'),
   tipoSecoesWrap: document.getElementById('tipoSecoesWrap'),
   tipoSecoesList: document.getElementById('tipoSecoesList'),
   tiposList: document.getElementById('tiposList'),
@@ -21,6 +23,8 @@ const ui = {
   secaoCabecalho: document.getElementById('secaoCabecalho'),
   secaoRodape: document.getElementById('secaoRodape'),
   secaoCancelBtn: document.getElementById('secaoCancelBtn'),
+  secaoOpenModalBtn: document.getElementById('secaoOpenModalBtn'),
+  secaoModal: document.getElementById('secaoModal'),
   secoesList: document.getElementById('secoesList'),
 
   // atributos
@@ -36,6 +40,8 @@ const ui = {
   atributoPeso: document.getElementById('atributoPeso'),
   atributoMascara: document.getElementById('atributoMascara'),
   atributoCancelBtn: document.getElementById('atributoCancelBtn'),
+  atributoOpenModalBtn: document.getElementById('atributoOpenModalBtn'),
+  atributoModal: document.getElementById('atributoModal'),
   atributosList: document.getElementById('atributosList'),
 
   // layout
@@ -49,9 +55,11 @@ const ui = {
   documentoId: document.getElementById('documentoId'),
   documentoTitulo: document.getElementById('documentoTitulo'),
   documentoTipo: document.getElementById('documentoTipo'),
-    documentoCampos: document.getElementById('documentoCampos'),
-    documentoCancelBtn: document.getElementById('documentoCancelBtn'),
-    documentosList: document.getElementById('documentosList'),
+  documentoCampos: document.getElementById('documentoCampos'),
+  documentoCancelBtn: document.getElementById('documentoCancelBtn'),
+  documentoOpenModalBtn: document.getElementById('documentoOpenModalBtn'),
+  documentoModal: document.getElementById('documentoModal'),
+  documentosList: document.getElementById('documentosList'),
 
   // relatorios
   relatorioTipo: document.getElementById('relatorioTipo'),

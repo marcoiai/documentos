@@ -29,31 +29,40 @@
           <div class="card-content">
             <span class="card-title">1) Tipos de Secao</span>
 
-            <form id="secaoForm">
-              <input type="hidden" id="secaoId" />
-              <div class="input-field">
-                <input id="secaoNome" type="text" required />
-                <label for="secaoNome">Nome da secao</label>
-              </div>
-              <div class="input-field">
-                <textarea id="secaoCabecalho" class="materialize-textarea"></textarea>
-                <label for="secaoCabecalho">Cabecalho (opcional)</label>
-              </div>
-              <div class="input-field">
-                <textarea id="secaoRodape" class="materialize-textarea"></textarea>
-                <label for="secaoRodape">Rodape (opcional)</label>
-              </div>
-              <div class="action-row">
-                <button type="submit" class="btn waves-effect waves-light">Salvar Secao</button>
-                <button type="button" id="secaoCancelBtn" class="btn-flat">Cancelar</button>
-              </div>
-            </form>
+            <div class="action-row">
+              <button type="button" id="secaoOpenModalBtn" class="btn waves-effect waves-light">Nova Secao</button>
+            </div>
 
             <ul id="secoesList" class="collection app-list"></ul>
           </div>
         </div>
       </section>
     </main>
+
+    <div id="secaoModal" class="modal">
+      <div class="modal-content">
+        <h5>Secao</h5>
+        <form id="secaoForm">
+          <input type="hidden" id="secaoId" />
+          <div class="input-field">
+            <input id="secaoNome" type="text" required />
+            <label for="secaoNome">Nome da secao</label>
+          </div>
+          <div class="input-field">
+            <textarea id="secaoCabecalho" class="materialize-textarea"></textarea>
+            <label for="secaoCabecalho">Cabecalho (opcional)</label>
+          </div>
+          <div class="input-field">
+            <textarea id="secaoRodape" class="materialize-textarea"></textarea>
+            <label for="secaoRodape">Rodape (opcional)</label>
+          </div>
+          <div class="action-row">
+            <button type="submit" class="btn waves-effect waves-light">Salvar Secao</button>
+            <button type="button" id="secaoCancelBtn" class="btn-flat">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

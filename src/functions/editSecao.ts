@@ -7,5 +7,5 @@ function editSecao(secaoId) {
   ui.secaoCabecalho.value = sec.cabecalho || '';
   ui.secaoRodape.value = sec.rodape || '';
   refreshMaterializeUI();
+  openAppModal(ui.secaoModal);
 }
-

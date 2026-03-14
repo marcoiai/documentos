@@ -2,17 +2,21 @@
 function bindEvents() {
   ui.tipoForm.addEventListener('submit', onTipoSubmit);
   ui.tipoCancelBtn.addEventListener('click', resetTipoForm);
+  ui.tipoOpenModalBtn.addEventListener('click', () => openAppModal(ui.tipoModal));
 
   ui.secaoForm.addEventListener('submit', onSecaoSubmit);
   ui.secaoCancelBtn.addEventListener('click', resetSecaoForm);
+  ui.secaoOpenModalBtn.addEventListener('click', () => openAppModal(ui.secaoModal));
 
   ui.atributoForm.addEventListener('submit', onAtributoSubmit);
   ui.atributoTipo.addEventListener('change', () => {
     renderSecaoOptions();
     renderAtributos();
+    refreshMaterializeUI();
   });
   ui.atributoTipoCampo.addEventListener('change', toggleAtributoTemplateConfig);
   ui.atributoCancelBtn.addEventListener('click', resetAtributoForm);
+  ui.atributoOpenModalBtn.addEventListener('click', () => openAppModal(ui.atributoModal));
 
   ui.layoutTipo.addEventListener('change', renderLayoutEditor);
   ui.layoutSaveBtn.addEventListener('click', saveLayoutForSelectedTipo);
@@ -21,6 +25,7 @@ function bindEvents() {
   ui.documentoForm.addEventListener('submit', onDocumentoSubmit);
   ui.documentoTipo.addEventListener('change', onDocumentoTipoChange);
   ui.documentoCancelBtn.addEventListener('click', resetDocumentoForm);
+  ui.documentoOpenModalBtn.addEventListener('click', () => openAppModal(ui.documentoModal));
   ui.documentoTitulo.addEventListener('input', () => clearFieldError(ui.documentoTitulo));
   ui.documentoTipo.addEventListener('change', () => clearFieldError(ui.documentoTipo));
   ui.documentoForm.addEventListener('input', () => refreshTemplatePreviews());

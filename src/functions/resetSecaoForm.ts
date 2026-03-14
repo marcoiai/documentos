@@ -4,6 +4,7 @@ function resetSecaoForm() {
   ui.secaoNome.value = '';
   ui.secaoCabecalho.value = '';
   ui.secaoRodape.value = '';
+  closeAppModal(ui.secaoModal);
 }
 
 // Atributos CRUD

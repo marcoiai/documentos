@@ -21,8 +21,13 @@ function onAtributoSubmit(e: Event): void {
   const peso = pesoRaw === '' ? null : Number(pesoRaw);
 
   const editId = ui.atributoId.value;
-  const linkedSecoes = getSecoesForTipo(tipoId).map((s) => s.id);
-  const safeSecaoId = secaoId && linkedSecoes.includes(secaoId) ? secaoId : '';
+  if (secaoId) {
+    const linkedSecoes = getSecoesForTipo(tipoId).map((s) => s.id);
+    if (!linkedSecoes.includes(secaoId)) {
+      state.tipoSecoes[tipoId] = Array.from(new Set([...linkedSecoes, secaoId]));
+    }
+  }
+  const safeSecaoId = secaoId && state.secoes.some((s) => s.id === secaoId) ? secaoId : '';
   if (editId) {
     const attr = state.atributos.find((a) => a.id === editId);
     if (!attr) return;

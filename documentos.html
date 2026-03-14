@@ -29,34 +29,44 @@
           <div class="card-content">
             <span class="card-title">3) Documento</span>
 
-            <form id="documentoForm">
-              <input type="hidden" id="documentoId" />
-
-              <div class="input-field">
-                <input id="documentoTitulo" type="text" required />
-                <label for="documentoTitulo">Titulo</label>
-              </div>
-
-              <div class="input-field">
-                <select id="documentoTipo" required>
-                  <option value="" selected>Selecione...</option>
-                </select>
-                <label for="documentoTipo">Documento Tipo</label>
-              </div>
-
-              <div id="documentoCampos" class="documento-campos"></div>
-
-              <div class="action-row">
-                <button type="submit" class="btn waves-effect waves-light">Salvar Documento</button>
-                <button type="button" id="documentoCancelBtn" class="btn-flat">Cancelar</button>
-              </div>
-            </form>
+            <div class="action-row">
+              <button type="button" id="documentoOpenModalBtn" class="btn waves-effect waves-light">Novo Documento</button>
+            </div>
 
             <ul id="documentosList" class="collection app-list"></ul>
           </div>
         </div>
       </section>
     </main>
+
+    <div id="documentoModal" class="modal modal-fixed-footer">
+      <div class="modal-content">
+        <h5>Documento</h5>
+        <form id="documentoForm">
+          <input type="hidden" id="documentoId" />
+
+          <div class="input-field">
+            <input id="documentoTitulo" type="text" required />
+            <label for="documentoTitulo">Titulo</label>
+          </div>
+
+          <div class="input-field">
+            <select id="documentoTipo" required>
+              <option value="" selected>Selecione...</option>
+            </select>
+            <label for="documentoTipo">Documento Tipo</label>
+          </div>
+
+          <div id="documentoCampos" class="documento-campos"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <div class="action-row" style="justify-content:flex-end;margin:0;">
+          <button type="submit" form="documentoForm" class="btn waves-effect waves-light">Salvar Documento</button>
+          <button type="button" id="documentoCancelBtn" class="btn-flat">Cancelar</button>
+        </div>
+      </div>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

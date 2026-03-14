@@ -8,5 +8,5 @@ function resetDocumentoForm() {
   clearDocumentoFieldErrors();
   renderDocumentoCampos();
   refreshTemplatePreviews();
+  closeAppModal(ui.documentoModal);
 }
-
