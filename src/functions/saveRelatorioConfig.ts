@@ -20,7 +20,14 @@ function saveRelatorioConfig() {
     existing.selectedAttrIds = cfg.selectedAttrIds;
     existing.reportLayout = cfg.reportLayout || [];
     existing.reportBlockOrder = normalizeRelatorioBlockOrder(cfg.reportBlockOrder);
-    existing.reportBlockVisibility = normalizeRelatorioBlockVisibility(cfg.reportBlockVisibility);
+    existing.reportBlockVisibility = normalizeRelatorioBlockVisibility(
+      cfg.reportBlockVisibility,
+      existing.reportBlockOrder
+    );
+    existing.reportBlockSpacerHeights = normalizeRelatorioBlockSpacerHeights(
+      cfg.reportBlockSpacerHeights || existing.reportBlockSpacerHeights,
+      existing.reportBlockOrder
+    );
     existing.reportFooterMode = cfg.reportFooterMode === 'after_block' ? 'after_block' : 'fixed_bottom';
     existing.reportFooterAnchor = ['cabecalho', 'info_geracao', 'tabela'].includes(String(cfg.reportFooterAnchor || ''))
       ? String(cfg.reportFooterAnchor)

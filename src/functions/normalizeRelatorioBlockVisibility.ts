@@ -1,7 +1,8 @@
 // @ts-nocheck
-function normalizeRelatorioBlockVisibility(raw) {
+function normalizeRelatorioBlockVisibility(raw, order = []) {
   const normalized = {};
-  for (const key of defaultRelatorioBlockOrder()) {
+  const keys = normalizeRelatorioBlockOrder(order);
+  for (const key of keys) {
     normalized[key] = raw && Object.prototype.hasOwnProperty.call(raw, key) ? Boolean(raw[key]) : true;
   }
   return normalized;

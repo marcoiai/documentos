@@ -1,6 +1,6 @@
 // @ts-nocheck
 function exportRelatorioPdf() {
-  const { tipoId, columns, rows, tipoNome, colSpans, blockOrder, blockVisibility, footerMode, footerAnchor, totalValues } = relatorioLastResult;
+  const { tipoId, columns, rows, tipoNome, colSpans, blockOrder, blockVisibility, blockSpacerHeights, footerMode, footerAnchor, totalValues } = relatorioLastResult;
   if (!columns.length) {
     notify('Gere o relatorio antes de exportar PDF.');
     return;
@@ -23,7 +23,8 @@ function exportRelatorioPdf() {
   const tipoCabecalho = resolveTemplateTextForOutput(String(tipo?.cabecalho || ''), headerFooterCtx).trim();
   const tipoRodape = resolveTemplateTextForOutput(String(tipo?.rodape || ''), headerFooterCtx).trim();
   const resolvedBlockOrder = normalizeRelatorioBlockOrder(blockOrder);
-  const resolvedBlockVisibility = normalizeRelatorioBlockVisibility(blockVisibility);
+  const resolvedBlockVisibility = normalizeRelatorioBlockVisibility(blockVisibility, resolvedBlockOrder);
+  const resolvedBlockSpacerHeights = normalizeRelatorioBlockSpacerHeights(blockSpacerHeights, resolvedBlockOrder);
   const resolvedFooterMode = footerMode === 'after_block' ? 'after_block' : 'fixed_bottom';
   const resolvedFooterAnchor = ['cabecalho', 'info_geracao', 'tabela'].includes(String(footerAnchor || ''))
     ? String(footerAnchor)
@@ -114,6 +115,13 @@ function exportRelatorioPdf() {
   let footerFlowRendered = false;
   for (const blockKey of resolvedBlockOrder) {
     if (blockKey === 'rodape') continue;
+    if (isRelatorioBlockSpacerKey(blockKey)) {
+      if (resolvedBlockVisibility[blockKey] === false) continue;
+      const spacerHeight = clampRelatorioSpacerHeight(resolvedBlockSpacerHeights[blockKey]);
+      addPageIfNeeded(spacerHeight);
+      y += spacerHeight;
+      continue;
+    }
     if (blockKey === 'cabecalho') {
       if (resolvedBlockVisibility[blockKey] === false) continue;
       if (!tipoCabecalho) continue;

@@ -15,6 +15,8 @@ let relatorioSavedBlockOrder: string[] = [];
 let relatorioLayoutBlocksWorking: string[] = [];
 let relatorioSavedBlockVisibility: Record<string, boolean> = {};
 let relatorioLayoutBlockVisibilityWorking: Record<string, boolean> = {};
+let relatorioSavedBlockSpacerHeights: Record<string, number> = {};
+let relatorioLayoutBlockSpacerHeightsWorking: Record<string, number> = {};
 let relatorioSavedFooterMode: 'fixed_bottom' | 'after_block' = 'fixed_bottom';
 let relatorioSavedFooterAnchor = 'tabela';
 let relatorioLayoutFooterModeWorking: 'fixed_bottom' | 'after_block' = 'fixed_bottom';
@@ -29,6 +31,7 @@ let relatorioLastResult = {
   colSpans: [],
   blockOrder: [],
   blockVisibility: {},
+  blockSpacerHeights: {},
   footerMode: 'fixed_bottom',
   footerAnchor: 'tabela',
   incluirCabecalho: false,

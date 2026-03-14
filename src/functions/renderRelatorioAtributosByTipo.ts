@@ -10,7 +10,7 @@ function renderRelatorioAtributosByTipo(tipoId, selectAll = false) {
     relatorioOrdenacaoWorking = [];
     relatorioTotalAttrIdsWorking = [];
     renderRelatorioOrdenacaoLista(tipoId);
-    relatorioLastResult = { tipoNome: tipoNome(tipoId), columns: [], colSpans: [], totalValues: [], rows: [] };
+    relatorioLastResult = { tipoNome: tipoNome(tipoId), columns: [], colSpans: [], blockSpacerHeights: {}, totalValues: [], rows: [] };
     ui.relatorioResumo.textContent = '';
     ui.relatorioTabelaHead.innerHTML = '';
     ui.relatorioTabelaBody.innerHTML = '';

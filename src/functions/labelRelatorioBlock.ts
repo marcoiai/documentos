@@ -4,5 +4,7 @@ function labelRelatorioBlock(key) {
   if (key === 'info_geracao') return 'Info de geracao';
   if (key === 'tabela') return 'Tabela';
   if (key === 'rodape') return 'Rodape';
+  if (isRelatorioBlockSpacerKey(key)) return 'Espacador';
+  if (isRelatorioBlockImageKey(key)) return 'Imagem';
   return key;
 }

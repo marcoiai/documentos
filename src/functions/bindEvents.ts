@@ -45,6 +45,7 @@ function bindEvents() {
 
   ui.relatorioLayoutTipo.addEventListener('change', onRelatorioLayoutTipoChange);
   ui.relatorioLayoutConfig.addEventListener('change', onRelatorioLayoutConfigChange);
+  ui.relatorioLayoutAddSpacerBtn.addEventListener('click', addRelatorioLayoutSpacer);
   ui.relatorioLayoutSaveBtn.addEventListener('click', saveRelatorioLayoutEditorConfig);
   ui.relatorioLayoutResetBtn.addEventListener('click', resetRelatorioLayoutEditorConfig);
 

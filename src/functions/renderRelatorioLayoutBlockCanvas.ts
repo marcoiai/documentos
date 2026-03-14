@@ -27,6 +27,27 @@ function renderRelatorioLayoutBlockCanvas(tipoId, configId) {
       </div>
     `;
 
+    if (isRelatorioBlockSpacerKey(key)) {
+      const spacerHeight = clampRelatorioSpacerHeight(relatorioLayoutBlockSpacerHeightsWorking[key]);
+      relatorioLayoutBlockSpacerHeightsWorking[key] = spacerHeight;
+      const spacerControls = document.createElement('div');
+      spacerControls.className = 'layout-item-controls';
+      spacerControls.innerHTML = `
+        <label>
+          Altura
+          <input type="range" min="4" max="240" step="1" value="${spacerHeight}" data-report-block-spacer-range="${key}" />
+        </label>
+        <label>
+          Px
+          <input type="number" min="4" max="240" step="1" value="${spacerHeight}" data-report-block-spacer-number="${key}" />
+        </label>
+        <div class="layout-item-actions">
+          <button type="button" class="btn-flat btn-small red-text" data-report-block-remove="${key}">Remover</button>
+        </div>
+      `;
+      card.appendChild(spacerControls);
+    }
+
     const visibleInput = card.querySelector(`[data-report-block-visible="${key}"]`);
     visibleInput.addEventListener('change', (e) => {
       relatorioLayoutBlockVisibilityWorking[key] = Boolean(e.target.checked);
@@ -43,6 +64,25 @@ function renderRelatorioLayoutBlockCanvas(tipoId, configId) {
       moveRelatorioLayoutBlockItem(key, 1);
       renderRelatorioLayoutBlockCanvas(tipoId, configId);
     });
+
+    if (isRelatorioBlockSpacerKey(key)) {
+      const rangeInput = card.querySelector(`[data-report-block-spacer-range="${key}"]`);
+      const numberInput = card.querySelector(`[data-report-block-spacer-number="${key}"]`);
+      const syncSpacerHeight = (value) => {
+        const next = clampRelatorioSpacerHeight(value);
+        relatorioLayoutBlockSpacerHeightsWorking[key] = next;
+        rangeInput.value = String(next);
+        numberInput.value = String(next);
+      };
+      rangeInput.addEventListener('input', (e) => syncSpacerHeight(e.target.value));
+      numberInput.addEventListener('input', (e) => syncSpacerHeight(e.target.value));
+      card.querySelector(`[data-report-block-remove="${key}"]`).addEventListener('click', () => {
+        relatorioLayoutBlocksWorking = relatorioLayoutBlocksWorking.filter((itemKey) => itemKey !== key);
+        delete relatorioLayoutBlockVisibilityWorking[key];
+        delete relatorioLayoutBlockSpacerHeightsWorking[key];
+        renderRelatorioLayoutBlockCanvas(tipoId, configId);
+      });
+    }
 
     card.addEventListener('dragstart', (e) => {
       card.classList.add('is-dragging');

@@ -93,6 +93,7 @@ const ui = {
   // layout de relatorio (pagina separada)
   relatorioLayoutTipo: document.getElementById('relatorioLayoutTipo'),
   relatorioLayoutConfig: document.getElementById('relatorioLayoutConfig'),
+  relatorioLayoutAddSpacerBtn: document.getElementById('relatorioLayoutAddSpacerBtn'),
   relatorioLayoutSaveBtn: document.getElementById('relatorioLayoutSaveBtn'),
   relatorioLayoutResetBtn: document.getElementById('relatorioLayoutResetBtn'),
   relatorioLayoutCanvas: document.getElementById('relatorioLayoutCanvas'),

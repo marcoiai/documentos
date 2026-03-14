@@ -184,6 +184,7 @@ function generateRelatorio() {
 
   const cfgBlockOrder = matchedConfig?.reportBlockOrder;
   const cfgBlockVisibility = matchedConfig?.reportBlockVisibility;
+  const cfgBlockSpacerHeights = matchedConfig?.reportBlockSpacerHeights;
   const cfgFooterMode = matchedConfig?.reportFooterMode;
   const cfgFooterAnchor = matchedConfig?.reportFooterAnchor;
 
@@ -193,7 +194,14 @@ function generateRelatorio() {
     columns,
     colSpans,
     blockOrder: normalizeRelatorioBlockOrder(cfgBlockOrder || relatorioSavedBlockOrder),
-    blockVisibility: normalizeRelatorioBlockVisibility(cfgBlockVisibility || relatorioSavedBlockVisibility),
+    blockVisibility: normalizeRelatorioBlockVisibility(
+      cfgBlockVisibility || relatorioSavedBlockVisibility,
+      cfgBlockOrder || relatorioSavedBlockOrder
+    ),
+    blockSpacerHeights: normalizeRelatorioBlockSpacerHeights(
+      cfgBlockSpacerHeights || relatorioSavedBlockSpacerHeights,
+      cfgBlockOrder || relatorioSavedBlockOrder
+    ),
     footerMode: (cfgFooterMode || relatorioSavedFooterMode) === 'after_block' ? 'after_block' : 'fixed_bottom',
     footerAnchor: ['cabecalho', 'info_geracao', 'tabela'].includes(String(cfgFooterAnchor || relatorioSavedFooterAnchor || ''))
       ? (cfgFooterAnchor || relatorioSavedFooterAnchor)

@@ -21,7 +21,14 @@ function renderRelatorioLayoutCanvas(tipoId, configId) {
     relatorioLayoutWorking = buildRelatorioLayoutWorkingFromConfig(tipoId, configId);
     relatorioTotalAttrIdsWorking = normalizeRelatorioTotalAttrIds(config.totalAttrIds, tipoId);
     relatorioLayoutBlocksWorking = normalizeRelatorioBlockOrder(config.reportBlockOrder);
-    relatorioLayoutBlockVisibilityWorking = normalizeRelatorioBlockVisibility(config.reportBlockVisibility);
+    relatorioLayoutBlockVisibilityWorking = normalizeRelatorioBlockVisibility(
+      config.reportBlockVisibility,
+      relatorioLayoutBlocksWorking
+    );
+    relatorioLayoutBlockSpacerHeightsWorking = normalizeRelatorioBlockSpacerHeights(
+      config.reportBlockSpacerHeights,
+      relatorioLayoutBlocksWorking
+    );
     relatorioLayoutFooterModeWorking = config.reportFooterMode === 'after_block' ? 'after_block' : 'fixed_bottom';
     relatorioLayoutFooterAnchorWorking = ['cabecalho', 'info_geracao', 'tabela'].includes(String(config.reportFooterAnchor || ''))
       ? String(config.reportFooterAnchor)
@@ -30,7 +37,14 @@ function renderRelatorioLayoutCanvas(tipoId, configId) {
     relatorioLayoutWorking = relatorioLayoutWorking.filter((x) => x && x.attrId);
     relatorioTotalAttrIdsWorking = normalizeRelatorioTotalAttrIds(relatorioTotalAttrIdsWorking, tipoId);
     relatorioLayoutBlocksWorking = normalizeRelatorioBlockOrder(relatorioLayoutBlocksWorking);
-    relatorioLayoutBlockVisibilityWorking = normalizeRelatorioBlockVisibility(relatorioLayoutBlockVisibilityWorking);
+    relatorioLayoutBlockVisibilityWorking = normalizeRelatorioBlockVisibility(
+      relatorioLayoutBlockVisibilityWorking,
+      relatorioLayoutBlocksWorking
+    );
+    relatorioLayoutBlockSpacerHeightsWorking = normalizeRelatorioBlockSpacerHeights(
+      relatorioLayoutBlockSpacerHeightsWorking,
+      relatorioLayoutBlocksWorking
+    );
     relatorioLayoutFooterModeWorking = relatorioLayoutFooterModeWorking === 'after_block' ? 'after_block' : 'fixed_bottom';
     relatorioLayoutFooterAnchorWorking = ['cabecalho', 'info_geracao', 'tabela'].includes(String(relatorioLayoutFooterAnchorWorking || ''))
       ? relatorioLayoutFooterAnchorWorking

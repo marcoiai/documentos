@@ -18,7 +18,14 @@ function saveRelatorioLayoutEditorConfig() {
     colSpan: clampColSpan(x.colSpan || 6),
   }));
   cfg.reportBlockOrder = normalizeRelatorioBlockOrder(relatorioLayoutBlocksWorking);
-  cfg.reportBlockVisibility = normalizeRelatorioBlockVisibility(relatorioLayoutBlockVisibilityWorking);
+  cfg.reportBlockVisibility = normalizeRelatorioBlockVisibility(
+    relatorioLayoutBlockVisibilityWorking,
+    cfg.reportBlockOrder
+  );
+  cfg.reportBlockSpacerHeights = normalizeRelatorioBlockSpacerHeights(
+    relatorioLayoutBlockSpacerHeightsWorking,
+    cfg.reportBlockOrder
+  );
   cfg.reportFooterMode = relatorioLayoutFooterModeWorking === 'after_block' ? 'after_block' : 'fixed_bottom';
   cfg.reportFooterAnchor = ['cabecalho', 'info_geracao', 'tabela'].includes(String(relatorioLayoutFooterAnchorWorking || ''))
     ? relatorioLayoutFooterAnchorWorking
@@ -27,6 +34,7 @@ function saveRelatorioLayoutEditorConfig() {
   cfg.selectedAttrIds = cfg.reportLayout.map((x) => x.attrId);
   relatorioSavedBlockOrder = cfg.reportBlockOrder.map((x) => x);
   relatorioSavedBlockVisibility = { ...cfg.reportBlockVisibility };
+  relatorioSavedBlockSpacerHeights = { ...(cfg.reportBlockSpacerHeights || {}) };
   relatorioSavedFooterMode = cfg.reportFooterMode;
   relatorioSavedFooterAnchor = cfg.reportFooterAnchor;
 

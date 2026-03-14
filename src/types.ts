@@ -57,6 +57,7 @@ interface ReportConfig {
   reportLayout?: LayoutItem[];
   reportBlockOrder?: string[];
   reportBlockVisibility?: Record<string, boolean>;
+  reportBlockSpacerHeights?: Record<string, number>;
   reportFooterMode?: 'fixed_bottom' | 'after_block';
   reportFooterAnchor?: string;
   incluirCabecalho?: boolean;

@@ -152,7 +152,8 @@ function loadState(): AppState {
             })).filter((x) => x.attrId)
             : [],
           reportBlockOrder: normalizeRelatorioBlockOrder(cfg.reportBlockOrder),
-          reportBlockVisibility: normalizeRelatorioBlockVisibility(cfg.reportBlockVisibility),
+          reportBlockVisibility: normalizeRelatorioBlockVisibility(cfg.reportBlockVisibility, cfg.reportBlockOrder),
+          reportBlockSpacerHeights: normalizeRelatorioBlockSpacerHeights(cfg.reportBlockSpacerHeights, cfg.reportBlockOrder),
           reportFooterMode: cfg.reportFooterMode === 'after_block' ? 'after_block' : 'fixed_bottom',
           reportFooterAnchor: ['cabecalho', 'info_geracao', 'tabela'].includes(String(cfg.reportFooterAnchor || ''))
             ? String(cfg.reportFooterAnchor)

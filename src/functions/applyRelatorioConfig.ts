@@ -8,7 +8,11 @@ function applyRelatorioConfig(config) {
     ? config.reportLayout.map((x) => ({ attrId: x.attrId, colSpan: clampColSpan(x.colSpan || 6) }))
     : [];
   relatorioSavedBlockOrder = normalizeRelatorioBlockOrder(config.reportBlockOrder);
-  relatorioSavedBlockVisibility = normalizeRelatorioBlockVisibility(config.reportBlockVisibility);
+  relatorioSavedBlockVisibility = normalizeRelatorioBlockVisibility(config.reportBlockVisibility, relatorioSavedBlockOrder);
+  relatorioSavedBlockSpacerHeights = normalizeRelatorioBlockSpacerHeights(
+    config.reportBlockSpacerHeights,
+    relatorioSavedBlockOrder
+  );
   relatorioSavedFooterMode = config.reportFooterMode === 'after_block' ? 'after_block' : 'fixed_bottom';
   relatorioSavedFooterAnchor = ['cabecalho', 'info_geracao', 'tabela'].includes(String(config.reportFooterAnchor || ''))
     ? String(config.reportFooterAnchor)

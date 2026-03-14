@@ -1,11 +1,13 @@
 // @ts-nocheck
 function normalizeRelatorioBlockOrder(order) {
-  const allowed = new Set(defaultRelatorioBlockOrder());
   const normalized = [];
   for (const key of Array.isArray(order) ? order : []) {
-    if (!allowed.has(key)) continue;
+    const text = String(key || '');
+    if (!defaultRelatorioBlockOrder().includes(text) && !isRelatorioBlockSpacerKey(text) && !isRelatorioBlockImageKey(text)) {
+      continue;
+    }
     if (normalized.includes(key)) continue;
-    normalized.push(key);
+    normalized.push(text);
   }
   for (const key of defaultRelatorioBlockOrder()) {
     if (!normalized.includes(key)) normalized.push(key);
