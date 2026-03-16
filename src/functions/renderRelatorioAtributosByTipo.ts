@@ -1,6 +1,7 @@
 // @ts-nocheck
 function renderRelatorioAtributosByTipo(tipoId, selectAll = false) {
   const attrs = getAtributosByTipo(tipoId);
+  const groups = buildSectionGroupsForTipo(tipoId, { includeEmptySections: true }).filter((group) => group.items.length > 0);
   ui.relatorioAtributosWrap.innerHTML = '';
   ui.relatorioFiltroAtributo.innerHTML = '<option value="">Sem filtro</option>';
   ui.relatorioOrdenarAtributo.innerHTML = '<option value="">Sem ordenacao</option>';
@@ -34,44 +35,60 @@ function renderRelatorioAtributosByTipo(tipoId, selectAll = false) {
     sortOpt.value = attr.id;
     sortOpt.textContent = attr.nome;
     ui.relatorioOrdenarAtributo.appendChild(sortOpt);
+  }
 
-    const label = document.createElement('label');
-    label.className = 'relatorio-attr-item';
+  for (const group of groups) {
+    const section = document.createElement('div');
+    section.className = 'relatorio-attrs-section';
 
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.dataset.relatorioAttr = attr.id;
-    input.checked = selectAll || selectedIds.size === 0 || selectedIds.has(attr.id);
+    const title = document.createElement('div');
+    title.className = 'relatorio-attrs-section-title';
+    title.textContent = group.nome;
+    section.appendChild(title);
 
-    const span = document.createElement('span');
-    span.textContent = attr.nome;
+    for (const item of group.items) {
+      const attr = item.attr;
+      const label = document.createElement('label');
+      label.className = 'relatorio-attr-item';
 
-    label.appendChild(input);
-    label.appendChild(span);
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.dataset.relatorioAttr = attr.id;
+      input.checked = selectAll || selectedIds.size === 0 || selectedIds.has(attr.id);
 
-    if (attr.tipoCampo === 'numero') {
-      const totalWrap = document.createElement('span');
-      totalWrap.style.marginLeft = '8px';
-      totalWrap.style.display = 'inline-flex';
-      totalWrap.style.alignItems = 'center';
-      totalWrap.style.gap = '4px';
-      totalWrap.innerHTML = `
-        <input type="checkbox" data-relatorio-total-attr="${attr.id}" ${totalSelected.has(attr.id) ? 'checked' : ''} />
-        <small class="grey-text">Σ</small>
-      `;
-      const totalInput = totalWrap.querySelector(`input[data-relatorio-total-attr="${attr.id}"]`);
-      totalInput.addEventListener('change', (e) => {
-        if (e.target.checked) {
-          if (!relatorioTotalAttrIdsWorking.includes(attr.id)) relatorioTotalAttrIdsWorking.push(attr.id);
-        } else {
-          relatorioTotalAttrIdsWorking = relatorioTotalAttrIdsWorking.filter((id) => id !== attr.id);
-        }
-      });
-      totalInput.addEventListener('mousedown', (e) => e.stopPropagation());
-      totalInput.addEventListener('click', (e) => e.stopPropagation());
-      label.appendChild(totalWrap);
+      const span = document.createElement('span');
+      span.textContent = attr.nome;
+
+      label.appendChild(input);
+      label.appendChild(span);
+
+      if (attr.tipoCampo === 'numero') {
+        const totalWrap = document.createElement('span');
+        totalWrap.style.marginLeft = '8px';
+        totalWrap.style.display = 'inline-flex';
+        totalWrap.style.alignItems = 'center';
+        totalWrap.style.gap = '4px';
+        totalWrap.innerHTML = `
+          <input type="checkbox" data-relatorio-total-attr="${attr.id}" ${totalSelected.has(attr.id) ? 'checked' : ''} />
+          <small class="grey-text">Σ</small>
+        `;
+        const totalInput = totalWrap.querySelector(`input[data-relatorio-total-attr="${attr.id}"]`);
+        totalInput.addEventListener('change', (e) => {
+          if (e.target.checked) {
+            if (!relatorioTotalAttrIdsWorking.includes(attr.id)) relatorioTotalAttrIdsWorking.push(attr.id);
+          } else {
+            relatorioTotalAttrIdsWorking = relatorioTotalAttrIdsWorking.filter((id) => id !== attr.id);
+          }
+        });
+        totalInput.addEventListener('mousedown', (e) => e.stopPropagation());
+        totalInput.addEventListener('click', (e) => e.stopPropagation());
+        label.appendChild(totalWrap);
+      }
+
+      section.appendChild(label);
     }
-    list.appendChild(label);
+
+    list.appendChild(section);
   }
 
   ui.relatorioAtributosWrap.appendChild(list);

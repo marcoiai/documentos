@@ -4,14 +4,24 @@
   "description": "App de documentos em TypeScript (compilado para app.js)",
   "main": "app.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "npm run build:legacy && npm run build:react",
+    "build:legacy": "tsc -p tsconfig.json",
+    "build:react": "esbuild mui/main.jsx --bundle --outfile=mui-app.js --format=iife --platform=browser --jsx=automatic",
     "watch": "tsc -p tsconfig.json --watch"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^7.3.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
   "devDependencies": {
+    "esbuild": "^0.27.0",
     "typescript": "^5.9.3"
   }
 }

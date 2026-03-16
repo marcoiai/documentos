@@ -12,4 +12,5 @@ function renderAll() {
   renderRelatorioBuilder();
   renderRelatorioLayoutPage();
   refreshMaterializeUI();
+  window.documentosApp?.__emitChange?.();
 }
