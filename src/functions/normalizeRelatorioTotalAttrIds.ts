@@ -5,7 +5,7 @@ function normalizeRelatorioTotalAttrIds(raw, tipoId = '') {
     try {
       allowed = new Set(
         getAtributosByTipo(tipoId)
-          .filter((a) => a.tipoCampo === 'numero')
+          .filter((a) => a.tipoCampo === 'numero' || a.tipoCampo === 'currency')
           .map((a) => a.id)
       );
     } catch {

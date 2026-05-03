@@ -35,27 +35,7 @@
   }
 
   function parseRelatorioNumericFilterValue(value) {
-    const raw = String(value ?? '').trim();
-    if (!raw) return null;
-    const compact = raw.replace(/\s/g, '');
-    const hasDot = compact.includes('.');
-    const hasComma = compact.includes(',');
-    let normalized = compact;
-    if (hasDot && hasComma) {
-      const lastDot = compact.lastIndexOf('.');
-      const lastComma = compact.lastIndexOf(',');
-      const decimalSep = lastDot > lastComma ? '.' : ',';
-      const thousandSep = decimalSep === '.' ? ',' : '.';
-      normalized = compact.split(thousandSep).join('');
-      if (decimalSep === ',') normalized = normalized.replace(',', '.');
-    } else if (hasComma) {
-      normalized = compact.replace(/\./g, '').replace(',', '.');
-    } else {
-      normalized = compact.replace(/,/g, '');
-    }
-    const n = Number(normalized);
-    if (Number.isNaN(n) || !Number.isFinite(n)) return null;
-    return n;
+    return parseLocaleNumber(value);
   }
 
   function matchesRelatorioTotalFilter(actual, operator, expectedRaw) {
@@ -255,6 +235,11 @@
     const safeSecaoId = secaoId && state.secoes.some((s) => s.id === secaoId) ? secaoId : '';
     const peso = pesoRaw === '' ? null : Number(pesoRaw);
     const atributoId = String(payload?.id || '').trim();
+    const nextTemplateTexto = tipoCampo === 'texto_placeholder'
+      ? templateTexto
+      : (tipoCampo === 'currency'
+        ? serializeCurrencyConfig(payload?.currencySymbol !== false)
+        : '');
 
     if (atributoId) {
       const atributo = state.atributos.find((item) => item.id === atributoId);
@@ -270,7 +255,7 @@
       atributo.validador = validador;
       atributo.peso = peso;
       atributo.mascara = mascara;
-      atributo.templateTexto = tipoCampo === 'texto_placeholder' ? templateTexto : '';
+      atributo.templateTexto = nextTemplateTexto;
       delete atributo.textoBase;
       syncLayoutsForTipo(oldTipoId);
       syncLayoutsForTipo(tipoId);
@@ -284,7 +269,7 @@
         validador,
         peso,
         mascara,
-        templateTexto: tipoCampo === 'texto_placeholder' ? templateTexto : '',
+        templateTexto: nextTemplateTexto,
       });
       syncLayoutsForTipo(tipoId);
     }
@@ -477,16 +462,15 @@
     const filteredDocs = [];
     const rows = [];
     const numeroTotals = attrs.map((attr) => {
-      if (attr.tipoCampo !== 'numero') return null;
+      if (attr.tipoCampo !== 'numero' && attr.tipoCampo !== 'currency') return null;
       return totalAttrSet.has(attr.id) ? 0 : null;
     });
 
     const parseSortableValue = (attr, value) => {
       const raw = String(value ?? '').trim();
       if (!raw) return { empty: true, kind: 'text', value: '' };
-      if (attr?.tipoCampo === 'numero') {
-        const normalized = raw.replace(/\./g, '').replace(',', '.');
-        const n = Number(normalized);
+      if (attr?.tipoCampo === 'numero' || attr?.tipoCampo === 'currency') {
+        const n = parseLocaleNumber(raw);
         if (!Number.isNaN(n) && Number.isFinite(n)) return { empty: false, kind: 'number', value: n };
       }
       if (attr?.tipoCampo === 'data') {
@@ -503,27 +487,7 @@
     };
 
     const parseNumericValue = (value) => {
-      const raw = String(value ?? '').trim();
-      if (!raw) return null;
-      const compact = raw.replace(/\s/g, '');
-      const hasDot = compact.includes('.');
-      const hasComma = compact.includes(',');
-      let normalized = compact;
-      if (hasDot && hasComma) {
-        const lastDot = compact.lastIndexOf('.');
-        const lastComma = compact.lastIndexOf(',');
-        const decimalSep = lastDot > lastComma ? '.' : ',';
-        const thousandSep = decimalSep === '.' ? ',' : '.';
-        normalized = compact.split(thousandSep).join('');
-        if (decimalSep === ',') normalized = normalized.replace(',', '.');
-      } else if (hasComma) {
-        normalized = compact.replace(/\./g, '').replace(',', '.');
-      } else {
-        normalized = compact.replace(/,/g, '');
-      }
-      const n = Number(normalized);
-      if (Number.isNaN(n) || !Number.isFinite(n)) return null;
-      return n;
+      return parseLocaleNumber(value);
     };
 
     for (const doc of docs) {
@@ -577,6 +541,11 @@
     const totalValues = somarNumericos
       ? numeroTotals.map((x) => (x === null ? '' : Number(x).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })))
       : [];
+    const cfgBlockOrder = matchedConfig?.reportBlockOrder;
+    const cfgBlockVisibility = matchedConfig?.reportBlockVisibility;
+    const cfgBlockSpacerHeights = matchedConfig?.reportBlockSpacerHeights;
+    const cfgFooterMode = matchedConfig?.reportFooterMode;
+    const cfgFooterAnchor = matchedConfig?.reportFooterAnchor;
     const sumOfSumsValue = somarNumericos && sumOfSumsEnabled
       ? numeroTotals.reduce((acc, total, idx) => {
         const attr = attrs[idx];
@@ -587,7 +556,7 @@
       : null;
     const totalsByKey = new Map<string, number | null>();
     attrs.forEach((attr, idx) => {
-      if (attr.tipoCampo !== 'numero') return;
+      if (attr.tipoCampo !== 'numero' && attr.tipoCampo !== 'currency') return;
       totalsByKey.set(`attr_total:${attr.id}`, numeroTotals[idx] === null ? null : Number(numeroTotals[idx]));
     });
     totalsByKey.set('sum_of_sums', sumOfSumsValue === null ? null : Number(sumOfSumsValue));
@@ -595,6 +564,21 @@
       !matchesRelatorioTotalFilter(totalsByKey.get(filter.key), filter.operator, filter.value)
     ));
     if (failedTotalFilters.length > 0) {
+      relatorioLastResult = {
+        tipoId,
+        tipoNome: tipoNome(tipoId),
+        columns,
+        colSpans,
+        blockOrder: normalizeRelatorioBlockOrder(cfgBlockOrder || relatorioSavedBlockOrder),
+        blockVisibility: normalizeRelatorioBlockVisibility(cfgBlockVisibility || relatorioSavedBlockVisibility, cfgBlockOrder || relatorioSavedBlockOrder),
+        blockSpacerHeights: normalizeRelatorioBlockSpacerHeights(cfgBlockSpacerHeights || relatorioSavedBlockSpacerHeights, cfgBlockOrder || relatorioSavedBlockOrder),
+        footerMode: (cfgFooterMode || relatorioSavedFooterMode) === 'after_block' ? 'after_block' : 'fixed_bottom',
+        footerAnchor: ['cabecalho', 'info_geracao', 'tabela'].includes(String(cfgFooterAnchor || relatorioSavedFooterAnchor || ''))
+          ? (cfgFooterAnchor || relatorioSavedFooterAnchor)
+          : 'tabela',
+        totalValues: [],
+        rows: [],
+      };
       return {
         ok: true,
         result: {
@@ -609,6 +593,22 @@
         },
       };
     }
+
+    relatorioLastResult = {
+      tipoId,
+      tipoNome: tipoNome(tipoId),
+      columns,
+      colSpans,
+      blockOrder: normalizeRelatorioBlockOrder(cfgBlockOrder || relatorioSavedBlockOrder),
+      blockVisibility: normalizeRelatorioBlockVisibility(cfgBlockVisibility || relatorioSavedBlockVisibility, cfgBlockOrder || relatorioSavedBlockOrder),
+      blockSpacerHeights: normalizeRelatorioBlockSpacerHeights(cfgBlockSpacerHeights || relatorioSavedBlockSpacerHeights, cfgBlockOrder || relatorioSavedBlockOrder),
+      footerMode: (cfgFooterMode || relatorioSavedFooterMode) === 'after_block' ? 'after_block' : 'fixed_bottom',
+      footerAnchor: ['cabecalho', 'info_geracao', 'tabela'].includes(String(cfgFooterAnchor || relatorioSavedFooterAnchor || ''))
+        ? (cfgFooterAnchor || relatorioSavedFooterAnchor)
+        : 'tabela',
+      totalValues,
+      rows,
+    };
 
     return {
       ok: true,
@@ -657,6 +657,7 @@
     saveReportConfig,
     deleteReportConfig,
     generateReport,
+    exportRelatorioPdf: () => exportRelatorioPdf(),
     deleteTipo: (tipoId) => deleteTipo(tipoId),
     deleteSecao: (secaoId) => deleteSecao(secaoId),
     deleteAtributo: (atributoId) => deleteAtributo(atributoId),

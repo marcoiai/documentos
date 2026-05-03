@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'documentos_app_v2';
 const DOCUMENTO_API_URL = String((window as any).DOCUMENTO_API_URL || '').trim();
+const APP_STATE_API_URL = String((window as any).APP_STATE_API_URL || '').trim() || 'http://127.0.0.1:8000/api/state';
 
 const state: AppState = loadState();
 const ui = {
@@ -35,6 +36,8 @@ const ui = {
   atributoTipoCampo: document.getElementById('atributoTipoCampo'),
   atributoTemplateWrap: document.getElementById('atributoTemplateWrap'),
   atributoTemplateTexto: document.getElementById('atributoTemplateTexto'),
+  atributoCurrencyWrap: document.getElementById('atributoCurrencyWrap'),
+  atributoCurrencySymbol: document.getElementById('atributoCurrencySymbol'),
   atributoSecao: document.getElementById('atributoSecao'),
   atributoValidador: document.getElementById('atributoValidador'),
   atributoPeso: document.getElementById('atributoPeso'),

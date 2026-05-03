@@ -53,6 +53,28 @@ function buildInput(attr, id, value) {
     return input;
   }
 
+  if (attr.tipoCampo === 'currency') {
+    input.type = 'text';
+    input.inputMode = 'decimal';
+    const currencyConfig = getCurrencyConfig(attr);
+    const initialValue = parseLocaleNumber(value);
+    input.value = initialValue === null ? String(value || '') : formatCurrencyNumber(initialValue, currencyConfig);
+    input.addEventListener('focus', () => {
+      const parsed = parseLocaleNumber(input.value);
+      if (parsed !== null) {
+        input.value = String(parsed).replace('.', ',');
+      }
+    });
+    input.addEventListener('blur', () => {
+      const parsed = parseLocaleNumber(input.value);
+      input.value = parsed === null ? '' : formatCurrencyNumber(parsed, currencyConfig);
+      clearFieldError(input);
+    });
+    input.addEventListener('input', () => clearFieldError(input));
+    input.addEventListener('change', () => clearFieldError(input));
+    return input;
+  }
+
   if (attr.mascara) {
     input.type = 'text';
     input.value = applyMask(String(value), attr.mascara);
@@ -73,4 +95,3 @@ function buildInput(attr, id, value) {
   input.addEventListener('change', () => clearFieldError(input));
   return input;
 }
-

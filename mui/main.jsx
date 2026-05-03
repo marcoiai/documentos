@@ -352,6 +352,162 @@ function AtributoDialog({ open, tipos, secoes, initialValue, onClose, onSave }) 
   );
 }
 
+function LayoutPage() {
+  const tipos = app?.getTipos?.() || [];
+  const [tipoId, setTipoId] = useState('');
+
+  useEffect(() => {
+    if (!tipoId && tipos[0]) {
+      setTipoId(tipos[0].id);
+    }
+  }, [tipoId, tipos]);
+
+  const sections = tipoId ? (app?.getLayoutEditorData?.(tipoId) || []) : [];
+  const sectionKeys = sections.map((section) => section.key);
+  const destinationSections = [
+    { key: '__sem_secao__', nome: 'Sem secao' },
+    ...(app?.getSecoesForTipo?.(tipoId) || []).map((secao) => ({ key: secao.id, nome: secao.nome })),
+  ];
+
+  const moveSection = (key, direction) => {
+    const index = sectionKeys.indexOf(key);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= sectionKeys.length) return;
+    app?.moveLayoutSectionBefore?.(tipoId, key, sectionKeys[nextIndex]);
+  };
+
+  const moveItem = (items, attrId, direction) => {
+    const index = items.findIndex((item) => item.attr.id === attrId);
+    const target = items[index + direction];
+    if (index < 0 || !target) return;
+    app?.swapLayoutItems?.(tipoId, attrId, target.attr.id);
+  };
+
+  const resetLayout = () => {
+    if (!tipoId) return;
+    app?.resetLayoutForTipo?.(tipoId);
+    app?.notify?.('Layout resetado para o padrao do tipo.');
+  };
+
+  return (
+    <Stack spacing={2}>
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+        <Box>
+          <Typography variant="h4">Layout</Typography>
+          <Typography color="text.secondary">Organize secoes, ordem e largura dos campos sem depender da tela legada.</Typography>
+        </Box>
+        <Stack direction="row" spacing={1}>
+          <Button variant="outlined" onClick={resetLayout} disabled={!tipoId}>Resetar</Button>
+        </Stack>
+      </Stack>
+
+      <Card>
+        <CardContent>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
+            <FormControl fullWidth>
+              <InputLabel>Tipo</InputLabel>
+              <Select label="Tipo" value={tipoId} onChange={(event) => setTipoId(event.target.value)}>
+                {tipos.map((tipo) => (
+                  <MenuItem key={tipo.id} value={tipo.id}>{tipo.nome}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Typography variant="body2" color="text.secondary">
+              Alteracoes de layout sao salvas automaticamente.
+            </Typography>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {!tipoId ? (
+        <EmptyState title="Nenhum tipo disponivel" description="Crie um tipo para editar o layout." />
+      ) : sections.length === 0 ? (
+        <EmptyState title="Nenhuma secao encontrada" description="Vincule secoes ou atributos ao tipo para montar o layout." />
+      ) : (
+        <Stack spacing={2}>
+          {sections.map((section, sectionIndex) => (
+            <Card key={section.key}>
+              <CardContent>
+                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                      <Typography variant="h6">{section.nome}</Typography>
+                      {section.key === '__sem_secao__' ? <Chip label="Fixa no topo" size="small" color="primary" variant="outlined" /> : null}
+                    </Stack>
+                    {section.cabecalho ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Cabecalho: {preview(section.cabecalho, 180)}
+                      </Typography>
+                    ) : null}
+                    {section.rodape ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        Rodape: {preview(section.rodape, 180)}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                  <Stack direction="row" spacing={1}>
+                    <Button variant="outlined" onClick={() => moveSection(section.key, -1)} disabled={sectionIndex <= 1 || section.key === '__sem_secao__'}>↑</Button>
+                    <Button variant="outlined" onClick={() => moveSection(section.key, 1)} disabled={sectionIndex === sections.length - 1 || section.key === '__sem_secao__'}>↓</Button>
+                  </Stack>
+                </Stack>
+
+                {section.items.length === 0 ? (
+                  <Typography color="text.secondary">Sem atributos nesta secao.</Typography>
+                ) : (
+                  <Stack spacing={1.5}>
+                    {section.items.map((item, itemIndex) => (
+                      <Card key={item.attr.id} variant="outlined">
+                        <CardContent sx={{ '&:last-child': { pb: 2 } }}>
+                          <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" spacing={2}>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography fontWeight={700}>{item.attr.nome}</Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {item.attr.tipoCampo}
+                              </Typography>
+                            </Box>
+                            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+                              <FormControl sx={{ minWidth: 140 }}>
+                                <InputLabel>Largura</InputLabel>
+                                <Select
+                                  label="Largura"
+                                  value={String(item.colSpan)}
+                                  onChange={(event) => app?.updateLayoutSpan?.(tipoId, item.attr.id, Number(event.target.value))}
+                                >
+                                  {[3, 4, 6, 8, 12].map((value) => (
+                                    <MenuItem key={value} value={String(value)}>{value}/12</MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                              <FormControl sx={{ minWidth: 180 }}>
+                                <InputLabel>Secao</InputLabel>
+                                <Select
+                                  label="Secao"
+                                  value={section.key}
+                                  onChange={(event) => app?.moveAttributeToSection?.(tipoId, item.attr.id, event.target.value)}
+                                >
+                                  {destinationSections.map((destination) => (
+                                    <MenuItem key={destination.key} value={destination.key}>{destination.nome}</MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                              <Button variant="outlined" onClick={() => moveItem(section.items, item.attr.id, -1)} disabled={itemIndex === 0}>↑</Button>
+                              <Button variant="outlined" onClick={() => moveItem(section.items, item.attr.id, 1)} disabled={itemIndex === section.items.length - 1}>↓</Button>
+                            </Stack>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Stack>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </Stack>
+      )}
+    </Stack>
+  );
+}
+
 function renderDocumentoField(attr, value, onChange) {
   if (attr.mascara) {
     return (
@@ -732,6 +888,16 @@ function RelatoriosPage() {
       setResult(response.result);
       setResultDialogOpen(true);
     }
+    return response;
+  };
+
+  const renderPdf = async () => {
+    const response = await generate();
+    if (!response?.ok) {
+      app?.notify?.('Gere o relatorio antes de renderizar o PDF.');
+      return;
+    }
+    app?.exportRelatorioPdf?.();
   };
 
   return (
@@ -779,6 +945,7 @@ function RelatoriosPage() {
               applyConfig('');
             }}>Excluir config</Button> : null}
             <Button variant="contained" onClick={generate}>Gerar relatorio</Button>
+            <Button variant="outlined" onClick={renderPdf}>Render PDF</Button>
           </Stack>
         </CardContent>
       </Card>
@@ -1077,6 +1244,7 @@ function RelatoriosPage() {
           ) : null}
         </DialogContent>
         <DialogActions>
+          <Button variant="outlined" onClick={renderPdf}>Render PDF</Button>
           <Button onClick={() => setResultDialogOpen(false)}>Fechar</Button>
         </DialogActions>
       </Dialog>
@@ -1863,7 +2031,7 @@ function App() {
     }
 
     if (route === 'layout') {
-      return <LegacyPageFrame title="Layout" description="Ferramenta legada encaixada no shell React enquanto a migracao avanca." src="layout.html" />;
+      return <LayoutPage />;
     }
 
     if (route === 'relatorios') {

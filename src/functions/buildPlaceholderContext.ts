@@ -14,7 +14,9 @@ function buildPlaceholderContext(tipoId, valores, titulo = '') {
 
   for (const attr of attrs) {
     const raw = valores[attr.id];
-    const value = attr.tipoCampo === 'boolean' ? (raw ? 'Sim' : 'Nao') : raw ?? '';
+    const value = attr.tipoCampo === 'boolean'
+      ? (raw ? 'Sim' : 'Nao')
+      : (attr.tipoCampo === 'currency' ? resolveAttrValueForOutput(attr, raw, ctx) : raw ?? '');
     put(attr.id, value);
     put(attr.nome, value);
   }
@@ -39,4 +41,3 @@ function buildPlaceholderContext(tipoId, valores, titulo = '') {
 
   return ctx;
 }
-

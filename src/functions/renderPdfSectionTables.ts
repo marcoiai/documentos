@@ -38,19 +38,48 @@ function renderPdfSectionTables({
   const semSecaoKey = '__sem_secao__';
   const sectionHeaderHeight = 22;
   const sectionPadding = 10;
-  const tableHeaderHeight = 18;
-  const rowLineHeight = 11;
-  const rowPaddingY = 5;
-  const col1Ratio = 0.36;
+  const sectionGap = 10;
+  const gridGap = 8;
   const sectionInfoGap = 6;
   const sectionInfoLineHeight = 10.5;
   const sectionInfoPadY = 5;
+  const valueLineHeight = 11;
+  const labelLineHeight = 10;
+  const itemPaddingX = 8;
+  const itemPaddingY = 8;
+  const gridColumns = 12;
+
+  const getItemWidth = (tableWidth, colSpan) => {
+    const span = Math.max(1, Math.min(gridColumns, Number(colSpan || 6)));
+    const single = (tableWidth - gridGap * (gridColumns - 1)) / gridColumns;
+    return single * span + gridGap * (span - 1);
+  };
+
+  const packRows = (items) => {
+    const rows = [];
+    let current = [];
+    let used = 0;
+
+    for (const item of items) {
+      const span = Math.max(1, Math.min(gridColumns, Number(item.colSpan || 6)));
+      if (current.length && used + span > gridColumns) {
+        rows.push(current);
+        current = [];
+        used = 0;
+      }
+      current.push({ ...item, colSpan: span });
+      used += span;
+    }
+
+    if (current.length) rows.push(current);
+    return rows;
+  };
 
   for (const group of groups) {
     const secao = group.key === semSecaoKey ? null : state.secoes.find((s) => s.id === group.key);
     const secaoCabecalho = resolveTemplateTextForOutput(secao?.cabecalho || '', placeholderCtx).trim();
     const secaoRodape = resolveTemplateTextForOutput(secao?.rodape || '', placeholderCtx).trim();
-    const rows = group.items
+    const items = group.items
       .filter((item) => pdfVisivel[item.attr.id] !== false && item.attr.tipoCampo !== 'assinatura')
       .map((item) => {
         const attr = item.attr;
@@ -60,45 +89,44 @@ function renderPdfSectionTables({
           attr.tipoCampo === 'texto_placeholder' || attr.tipoCampo === 'textarea_template';
         const hideFieldName =
           isPlaceholderTemplate || attr.tipoCampo === 'textarea' || attr.tipoCampo === 'textarea_template';
-        const campo = hideFieldName ? '' : String(attr.nome);
-        return { campo, valor: String(value), fullwidth: isPlaceholderTemplate };
+        return {
+          attr,
+          colSpan: isPlaceholderTemplate ? 12 : item.colSpan,
+          campo: hideFieldName ? '' : String(attr.nome),
+          valor: String(value),
+          fullwidth: isPlaceholderTemplate,
+        };
       });
-    if (rows.length === 0) continue;
+    if (items.length === 0) continue;
 
     const tableX = margin + (group.key === semSecaoKey ? 0 : sectionPadding);
     const tableWidth = contentWidth - (group.key === semSecaoKey ? 0 : sectionPadding * 2);
-    const col1Width = tableWidth * col1Ratio;
-    const col2Width = tableWidth - col1Width;
+    const packedRows = packRows(items).map((rowItems) => {
+      const measuredItems = rowItems.map((item) => {
+        const cardWidth = getItemWidth(tableWidth, item.colSpan);
+        const labelLines = item.campo
+          ? pdf.splitTextToSize(item.campo, Math.max(24, cardWidth - itemPaddingX * 2))
+          : [];
+        const valueLines = pdf.splitTextToSize(item.valor, Math.max(24, cardWidth - itemPaddingX * 2));
+        const height =
+          itemPaddingY * 2
+          + (labelLines.length ? labelLines.length * labelLineHeight + 4 : 0)
+          + Math.max(1, valueLines.length) * valueLineHeight;
 
-    const measuredRows = rows.map((row) => {
-      if (row.fullwidth) {
-        const lineHeight = rowLineHeight + 2;
-        const valorLines = pdf.splitTextToSize(row.valor, tableWidth - 10);
-        const height = Math.max(1, valorLines.length) * lineHeight + rowPaddingY * 2;
         return {
-          ...row,
-          campoLines: [],
-          valorLines,
+          ...item,
+          width: cardWidth,
+          labelLines,
+          valueLines,
           height,
-          lineHeight,
-          fontSize: 12,
         };
-      }
+      });
 
-      const campoLines = pdf.splitTextToSize(row.campo, col1Width - 8);
-      const valorLines = pdf.splitTextToSize(row.valor, col2Width - 8);
-      const height = Math.max(campoLines.length, valorLines.length) * rowLineHeight + rowPaddingY * 2;
       return {
-        ...row,
-        campoLines,
-        valorLines,
-        height,
-        lineHeight: rowLineHeight,
-        fontSize: 9.5,
+        items: measuredItems,
+        height: Math.max(...measuredItems.map((item) => item.height)),
       };
     });
-    const hasOnlyFullwidthRows = measuredRows.every((row) => row.fullwidth);
-    const effectiveTableHeaderHeight = hasOnlyFullwidthRows ? 0 : tableHeaderHeight;
     const sectionInfoWidth = tableWidth - 8;
     const headerLines =
       group.key !== semSecaoKey && secaoCabecalho
@@ -115,107 +143,90 @@ function renderPdfSectionTables({
     const headerInfoTotal = headerInfoHeight > 0 ? headerInfoHeight + sectionInfoGap : 0;
     const footerInfoTotal = footerInfoHeight > 0 ? sectionInfoGap + footerInfoHeight : 0;
 
-    const tableBodyHeight = measuredRows.reduce((sum, r) => sum + r.height, 0);
-    const tableHeight = effectiveTableHeaderHeight + tableBodyHeight;
-    const wrapperHeight =
-      group.key === semSecaoKey
-        ? tableHeight
-        : sectionHeaderHeight + sectionPadding + headerInfoTotal + tableHeight + footerInfoTotal + sectionPadding;
+    const renderSectionHeader = () => {
+      if (group.key === semSecaoKey) return;
 
-    ensureSpace(wrapperHeight + 10);
-
-    let cursorY = y;
-    if (group.key !== semSecaoKey) {
+      ensureSpace(sectionHeaderHeight + sectionPadding);
       pdf.setDrawColor(...palette.cardBorder);
-      pdf.setFillColor(...palette.cardBg);
-      pdf.roundedRect(margin, y, contentWidth, wrapperHeight, 4, 4, 'FD');
-
       pdf.setFillColor(...palette.chipBg);
-      pdf.roundedRect(margin, y, contentWidth, sectionHeaderHeight, 4, 4, 'F');
-
+      pdf.roundedRect(margin, y, contentWidth, sectionHeaderHeight, 4, 4, 'FD');
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(11);
       pdf.setTextColor(...palette.textMain);
       pdf.text(group.nome, margin + sectionPadding, y + 15);
-      cursorY = y + sectionHeaderHeight + sectionPadding;
+      y += sectionHeaderHeight + sectionPadding;
+
       if (headerInfoHeight > 0) {
+        ensureSpace(headerInfoHeight + sectionInfoGap);
         pdf.setDrawColor(...palette.cardBorder);
-        pdf.setFillColor(...palette.chipBg);
-        pdf.rect(tableX, cursorY, tableWidth, headerInfoHeight, 'FD');
+        pdf.setFillColor(...palette.cardBg);
+        pdf.roundedRect(tableX, y, tableWidth, headerInfoHeight, 4, 4, 'FD');
         pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(9.2);
         pdf.setTextColor(...palette.textMuted);
-        let headerY = cursorY + sectionInfoPadY + 7;
+        let headerY = y + sectionInfoPadY + 7;
         for (const line of headerLines) {
           pdf.text(line, tableX + 4, headerY);
           headerY += sectionInfoLineHeight;
         }
-        cursorY += headerInfoHeight + sectionInfoGap;
+        y += headerInfoHeight + sectionInfoGap;
       }
-    } else {
-      cursorY = y;
-    }
+    };
 
-    if (effectiveTableHeaderHeight > 0) {
-      pdf.setDrawColor(...palette.cardBorder);
-      pdf.setFillColor(...palette.chipBg);
-      pdf.rect(tableX, cursorY, tableWidth, effectiveTableHeaderHeight, 'FD');
-      pdf.line(tableX + col1Width, cursorY, tableX + col1Width, cursorY + effectiveTableHeaderHeight);
-    }
+    renderSectionHeader();
 
-    let rowY = cursorY + effectiveTableHeaderHeight;
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9.5);
-    pdf.setTextColor(...palette.textMuted);
-    for (const row of measuredRows) {
-      pdf.rect(tableX, rowY, tableWidth, row.height);
-      if (!row.fullwidth) {
-        pdf.line(tableX + col1Width, rowY, tableX + col1Width, rowY + row.height);
-      }
+    for (const row of packedRows) {
+      ensureSpace(row.height + gridGap);
 
-      if (row.fullwidth) {
-        pdf.setFontSize(row.fontSize);
+      let x = tableX;
+      for (const item of row.items) {
+        pdf.setDrawColor(...palette.cardBorder);
+        pdf.setFillColor(...palette.cardBg);
+        pdf.roundedRect(x, y, item.width, row.height, 4, 4, 'FD');
+
+        let textY = y + itemPaddingY + 8;
+        if (item.labelLines.length) {
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(9);
+          pdf.setTextColor(...palette.textMuted);
+          for (const line of item.labelLines) {
+            pdf.text(line, x + itemPaddingX, textY);
+            textY += labelLineHeight;
+          }
+          textY += 4;
+        }
+
+        pdf.setFont('helvetica', item.fullwidth ? 'normal' : 'bold');
+        pdf.setFontSize(item.fullwidth ? 11.5 : 10.2);
         pdf.setTextColor(...palette.textMain);
-        let vY = rowY + rowPaddingY + 9;
-        for (const line of row.valorLines) {
-          pdf.text(line, tableX + 6, vY);
-          vY += row.lineHeight;
-        }
-      } else {
-        pdf.setFontSize(row.fontSize);
-        pdf.setTextColor(...palette.textMuted);
-        let cY = rowY + rowPaddingY + 8;
-        for (const line of row.campoLines) {
-          pdf.text(line, tableX + 4, cY);
-          cY += row.lineHeight;
+        for (const line of item.valueLines) {
+          pdf.text(line, x + itemPaddingX, textY);
+          textY += valueLineHeight;
         }
 
-        let vY = rowY + rowPaddingY + 8;
-        for (const line of row.valorLines) {
-          pdf.text(line, tableX + col1Width + 4, vY);
-          vY += row.lineHeight;
-        }
+        x += item.width + gridGap;
       }
 
-      rowY += row.height;
+      y += row.height + gridGap;
     }
 
     if (footerInfoHeight > 0) {
-      const footerY = rowY + sectionInfoGap;
+      ensureSpace(footerInfoHeight + sectionGap);
       pdf.setDrawColor(...palette.cardBorder);
-      pdf.setFillColor(...palette.chipBg);
-      pdf.rect(tableX, footerY, tableWidth, footerInfoHeight, 'FD');
+      pdf.setFillColor(...palette.cardBg);
+      pdf.roundedRect(tableX, y, tableWidth, footerInfoHeight, 4, 4, 'FD');
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(9.2);
       pdf.setTextColor(...palette.textMuted);
-      let footerLineY = footerY + sectionInfoPadY + 7;
+      let footerLineY = y + sectionInfoPadY + 7;
       for (const line of footerLines) {
         pdf.text(line, tableX + 4, footerLineY);
         footerLineY += sectionInfoLineHeight;
       }
+      y += footerInfoHeight;
     }
 
-    y += wrapperHeight + 10;
+    y += sectionGap;
   }
 
   return { y, signatureAttrs };

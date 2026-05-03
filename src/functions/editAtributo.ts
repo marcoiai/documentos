@@ -12,6 +12,9 @@ function editAtributo(attrId) {
   ui.atributoPeso.value = attr.peso ?? '';
   ui.atributoMascara.value = attr.mascara || '';
   ui.atributoTemplateTexto.value = attr.templateTexto || '';
+  if (ui.atributoCurrencySymbol) {
+    ui.atributoCurrencySymbol.checked = getCurrencyConfig(attr).symbol !== false;
+  }
   toggleAtributoTemplateConfig();
   refreshMaterializeUI();
   renderAtributos();

@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'documentos_app_v2';
 const DOCUMENTO_API_URL = String(window.DOCUMENTO_API_URL || '').trim();
-const APP_STATE_API_URL = String(window.APP_STATE_API_URL || '').trim() || 'http://localhost:8000/api/state';
+const APP_STATE_API_URL = String(window.APP_STATE_API_URL || '').trim() || 'http://127.0.0.1:8000/api/state';
 const state = loadState();
 const ui = {
     // tipos
@@ -137,7 +137,6 @@ let relatorioLastResult = {
     rows: [],
 };
 initApp();
-
 async function initApp() {
     bindEvents();
     try {
@@ -292,6 +291,24 @@ async function initApp() {
                 colSpan: item.colSpan,
             })),
         }));
+    }
+    function getLayoutEditorData(tipoId) {
+        const resolvedTipoId = String(tipoId || '').trim();
+        if (!resolvedTipoId)
+            return [];
+        return buildSectionGroupsForTipo(resolvedTipoId, { includeEmptySections: true }).map((group) => {
+            const secao = group.key === '__sem_secao__' ? null : state.secoes.find((item) => item.id === group.key) || null;
+            return {
+                key: group.key,
+                nome: group.nome,
+                cabecalho: secao?.cabecalho || '',
+                rodape: secao?.rodape || '',
+                items: group.items.map((item) => ({
+                    attr: clone(item.attr),
+                    colSpan: item.colSpan,
+                })),
+            };
+        });
     }
     function getSnapshot() {
         return {
@@ -715,6 +732,11 @@ async function initApp() {
         const totalValues = somarNumericos
             ? numeroTotals.map((x) => (x === null ? '' : Number(x).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })))
             : [];
+        const cfgBlockOrder = matchedConfig?.reportBlockOrder;
+        const cfgBlockVisibility = matchedConfig?.reportBlockVisibility;
+        const cfgBlockSpacerHeights = matchedConfig?.reportBlockSpacerHeights;
+        const cfgFooterMode = matchedConfig?.reportFooterMode;
+        const cfgFooterAnchor = matchedConfig?.reportFooterAnchor;
         const sumOfSumsValue = somarNumericos && sumOfSumsEnabled
             ? numeroTotals.reduce((acc, total, idx) => {
                 const attr = attrs[idx];
@@ -734,6 +756,21 @@ async function initApp() {
         totalsByKey.set('sum_of_sums', sumOfSumsValue === null ? null : Number(sumOfSumsValue));
         const failedTotalFilters = totalFilters.filter((filter) => (!matchesRelatorioTotalFilter(totalsByKey.get(filter.key), filter.operator, filter.value)));
         if (failedTotalFilters.length > 0) {
+            relatorioLastResult = {
+                tipoId,
+                tipoNome: tipoNome(tipoId),
+                columns,
+                colSpans,
+                blockOrder: normalizeRelatorioBlockOrder(cfgBlockOrder || relatorioSavedBlockOrder),
+                blockVisibility: normalizeRelatorioBlockVisibility(cfgBlockVisibility || relatorioSavedBlockVisibility, cfgBlockOrder || relatorioSavedBlockOrder),
+                blockSpacerHeights: normalizeRelatorioBlockSpacerHeights(cfgBlockSpacerHeights || relatorioSavedBlockSpacerHeights, cfgBlockOrder || relatorioSavedBlockOrder),
+                footerMode: (cfgFooterMode || relatorioSavedFooterMode) === 'after_block' ? 'after_block' : 'fixed_bottom',
+                footerAnchor: ['cabecalho', 'info_geracao', 'tabela'].includes(String(cfgFooterAnchor || relatorioSavedFooterAnchor || ''))
+                    ? (cfgFooterAnchor || relatorioSavedFooterAnchor)
+                    : 'tabela',
+                totalValues: [],
+                rows: [],
+            };
             return {
                 ok: true,
                 result: {
@@ -748,6 +785,21 @@ async function initApp() {
                 },
             };
         }
+        relatorioLastResult = {
+            tipoId,
+            tipoNome: tipoNome(tipoId),
+            columns,
+            colSpans,
+            blockOrder: normalizeRelatorioBlockOrder(cfgBlockOrder || relatorioSavedBlockOrder),
+            blockVisibility: normalizeRelatorioBlockVisibility(cfgBlockVisibility || relatorioSavedBlockVisibility, cfgBlockOrder || relatorioSavedBlockOrder),
+            blockSpacerHeights: normalizeRelatorioBlockSpacerHeights(cfgBlockSpacerHeights || relatorioSavedBlockSpacerHeights, cfgBlockOrder || relatorioSavedBlockOrder),
+            footerMode: (cfgFooterMode || relatorioSavedFooterMode) === 'after_block' ? 'after_block' : 'fixed_bottom',
+            footerAnchor: ['cabecalho', 'info_geracao', 'tabela'].includes(String(cfgFooterAnchor || relatorioSavedFooterAnchor || ''))
+                ? (cfgFooterAnchor || relatorioSavedFooterAnchor)
+                : 'tabela',
+            totalValues,
+            rows,
+        };
         return {
             ok: true,
             result: {
@@ -786,6 +838,7 @@ async function initApp() {
         getReportTiposData,
         getReportConfigsData,
         getRelatorioAttributeGroups,
+        getLayoutEditorData,
         getSecoesForTipo: (tipoId) => getSecoesForTipo(String(tipoId || '')).map((secao) => clone(secao)),
         getAtributosByTipo: (tipoId) => getAtributosByTipo(String(tipoId || '')).map((atributo) => clone(atributo)),
         saveTipo,
@@ -795,6 +848,23 @@ async function initApp() {
         saveReportConfig,
         deleteReportConfig,
         generateReport,
+        exportRelatorioPdf: () => exportRelatorioPdf(),
+        updateLayoutSpan: (tipoId, attrId, span) => updateLayoutSpan(String(tipoId || ''), String(attrId || ''), span),
+        swapLayoutItems: (tipoId, attrA, attrB) => swapLayoutItems(String(tipoId || ''), String(attrA || ''), String(attrB || '')),
+        moveAttributeToSection: (tipoId, attrId, targetSectionKey) => moveAttributeToSection(String(tipoId || ''), String(attrId || ''), String(targetSectionKey || '')),
+        moveLayoutSectionBefore: (tipoId, draggedKey, targetKey) => moveLayoutSectionBefore(String(tipoId || ''), String(draggedKey || ''), String(targetKey || '')),
+        resetLayoutForTipo: (tipoId) => {
+            const resolvedTipoId = String(tipoId || '').trim();
+            if (!resolvedTipoId)
+                return { ok: false };
+            delete state.layouts[resolvedTipoId];
+            delete state.layoutSections[resolvedTipoId];
+            syncLayoutsForTipo(resolvedTipoId);
+            syncLayoutSectionsForTipo(resolvedTipoId);
+            saveState();
+            renderAll();
+            return { ok: true };
+        },
         deleteTipo: (tipoId) => deleteTipo(tipoId),
         deleteSecao: (secaoId) => deleteSecao(secaoId),
         deleteAtributo: (atributoId) => deleteAtributo(atributoId),
@@ -5117,8 +5187,41 @@ function saveRelatorioLayoutEditorConfig() {
     notify('Layout da configuracao de relatorio salvo.');
 }
 // @ts-nocheck
+let saveStateSnapshotTimer = null;
+let saveStateSnapshotInFlight = false;
+let saveStateSnapshotQueued = false;
+async function flushStateSnapshotToApi() {
+    if (saveStateSnapshotInFlight) {
+        saveStateSnapshotQueued = true;
+        return;
+    }
+    saveStateSnapshotInFlight = true;
+    saveStateSnapshotQueued = false;
+    try {
+        await pushStateSnapshotToApi();
+    }
+    catch (error) {
+        console.warn('[app-state] erro ao salvar snapshot na API', error);
+    }
+    finally {
+        saveStateSnapshotInFlight = false;
+        if (saveStateSnapshotQueued)
+            scheduleStateSnapshotToApi();
+    }
+}
+function scheduleStateSnapshotToApi() {
+    if (!APP_STATE_API_URL)
+        return;
+    if (saveStateSnapshotTimer !== null)
+        window.clearTimeout(saveStateSnapshotTimer);
+    saveStateSnapshotTimer = window.setTimeout(() => {
+        saveStateSnapshotTimer = null;
+        void flushStateSnapshotToApi();
+    }, 400);
+}
 function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    scheduleStateSnapshotToApi();
 }
 // @ts-nocheck
 function sectionKeyFromAttr(attr) {

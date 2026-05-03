@@ -200,6 +200,8 @@ onMounted(async () => {
               :model-value="String(form.valores[attr.external_id] ?? '')"
               :label="attr.nome"
               :type="attr.tipo_campo === 'numero' ? 'number' : (attr.tipo_campo === 'data' ? 'date' : 'text')"
+              :prefix="attr.tipo_campo === 'currency' ? 'R$' : undefined"
+              :inputmode="attr.tipo_campo === 'currency' ? 'decimal' : undefined"
               rounded="lg"
               @update:model-value="value => setFieldValue(attr.external_id, value)"
             />

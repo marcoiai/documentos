@@ -20,7 +20,7 @@ function renderAtributos() {
         <small>validador: ${escapeHtml(attr.validador || '-')}</small>
         <small>peso: ${escapeHtml(attr.peso ?? '-')}</small>
         <small>mascara: ${escapeHtml(attr.mascara || '-')}</small>
-        <small>template: ${escapeHtml(attr.templateTexto || '-')}</small>
+        <small>template: ${escapeHtml(attr.tipoCampo === 'currency' ? `symbol=${getCurrencyConfig(attr).symbol !== false ? 'on' : 'off'}` : (attr.templateTexto || '-'))}</small>
       </div>
       <div class="item-actions">
         <button type="button" class="btn-flat btn-small" data-edit="${attr.id}">Editar</button>
@@ -33,4 +33,3 @@ function renderAtributos() {
     ui.atributosList.appendChild(li);
   }
 }
-

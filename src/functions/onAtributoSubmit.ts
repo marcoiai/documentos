@@ -6,6 +6,7 @@ function onAtributoSubmit(e: Event): void {
   const tipoCampo = ui.atributoTipoCampo.value as CampoTipo;
   const secaoId = ui.atributoSecao.value;
   const templateTexto = (ui.atributoTemplateTexto.value || '').trim();
+  const currencySymbol = Boolean(ui.atributoCurrencySymbol?.checked);
   const validador = ui.atributoValidador.value.trim();
   const pesoRaw = ui.atributoPeso.value.trim();
   const mascara = ui.atributoMascara.value.trim();
@@ -28,6 +29,9 @@ function onAtributoSubmit(e: Event): void {
     }
   }
   const safeSecaoId = secaoId && state.secoes.some((s) => s.id === secaoId) ? secaoId : '';
+  const nextTemplateTexto = tipoCampo === 'texto_placeholder'
+    ? templateTexto
+    : (tipoCampo === 'currency' ? serializeCurrencyConfig(currencySymbol) : '');
   if (editId) {
     const attr = state.atributos.find((a) => a.id === editId);
     if (!attr) return;
@@ -39,7 +43,7 @@ function onAtributoSubmit(e: Event): void {
     attr.validador = validador;
     attr.peso = peso;
     attr.mascara = mascara;
-    attr.templateTexto = tipoCampo === 'texto_placeholder' ? templateTexto : '';
+    attr.templateTexto = nextTemplateTexto;
     delete attr.textoBase;
     syncLayoutsForTipo(oldTipoId);
     syncLayoutsForTipo(tipoId);
@@ -53,7 +57,7 @@ function onAtributoSubmit(e: Event): void {
       validador,
       peso,
       mascara,
-      templateTexto: tipoCampo === 'texto_placeholder' ? templateTexto : '',
+      templateTexto: nextTemplateTexto,
     });
     syncLayoutsForTipo(tipoId);
   }

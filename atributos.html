@@ -63,6 +63,7 @@
               <option value="textarea_template">Textarea (placeholders)</option>
               <option value="assinatura">Assinatura</option>
               <option value="numero">Numero</option>
+              <option value="currency">Currency</option>
               <option value="data">Data</option>
               <option value="boolean">Booleano</option>
             </select>
@@ -72,6 +73,13 @@
           <div class="input-field" id="atributoTemplateWrap" style="display:none;">
             <input id="atributoTemplateTexto" type="text" />
             <label for="atributoTemplateTexto" class="active">Template do texto (use {{campo}})</label>
+          </div>
+
+          <div id="atributoCurrencyWrap" style="display:none; margin: 8px 0 18px;">
+            <label>
+              <input id="atributoCurrencySymbol" type="checkbox" checked />
+              <span>Mostrar simbolo monetario</span>
+            </label>
           </div>
 
           <div class="input-field">

@@ -8,6 +8,7 @@ function resetAtributoForm() {
   ui.atributoPeso.value = '';
   ui.atributoMascara.value = '';
   ui.atributoTemplateTexto.value = '';
+  if (ui.atributoCurrencySymbol) ui.atributoCurrencySymbol.checked = true;
   toggleAtributoTemplateConfig();
   closeAppModal(ui.atributoModal);
 }

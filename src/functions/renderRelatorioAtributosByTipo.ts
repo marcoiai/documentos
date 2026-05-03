@@ -62,7 +62,7 @@ function renderRelatorioAtributosByTipo(tipoId, selectAll = false) {
       label.appendChild(input);
       label.appendChild(span);
 
-      if (attr.tipoCampo === 'numero') {
+      if (attr.tipoCampo === 'numero' || attr.tipoCampo === 'currency') {
         const totalWrap = document.createElement('span');
         totalWrap.style.marginLeft = '8px';
         totalWrap.style.display = 'inline-flex';

@@ -4,6 +4,6 @@ function defaultColSpanForAttr(attr) {
   if (attr.tipoCampo === 'boolean') return 4;
   if (attr.tipoCampo === 'data') return 4;
   if (attr.tipoCampo === 'numero') return 4;
+  if (attr.tipoCampo === 'currency') return 4;
   return 6;
 }
-

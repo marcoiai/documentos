@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'documentos_app_v2';
 const DOCUMENTO_API_URL = String(window.DOCUMENTO_API_URL || '').trim();
-const APP_STATE_API_URL = String(window.APP_STATE_API_URL || '').trim() || 'http://localhost:8000/api/state';
+const APP_STATE_API_URL = String(window.APP_STATE_API_URL || '').trim() || 'http://127.0.0.1:8000/api/state';
 const state = loadState();
 const ui = {
     // tipos
@@ -33,6 +33,8 @@ const ui = {
     atributoTipoCampo: document.getElementById('atributoTipoCampo'),
     atributoTemplateWrap: document.getElementById('atributoTemplateWrap'),
     atributoTemplateTexto: document.getElementById('atributoTemplateTexto'),
+    atributoCurrencyWrap: document.getElementById('atributoCurrencyWrap'),
+    atributoCurrencySymbol: document.getElementById('atributoCurrencySymbol'),
     atributoSecao: document.getElementById('atributoSecao'),
     atributoValidador: document.getElementById('atributoValidador'),
     atributoPeso: document.getElementById('atributoPeso'),
@@ -137,7 +139,6 @@ let relatorioLastResult = {
     rows: [],
 };
 initApp();
-
 async function initApp() {
     bindEvents();
     try {
@@ -188,32 +189,7 @@ async function initApp() {
         });
     }
     function parseRelatorioNumericFilterValue(value) {
-        const raw = String(value ?? '').trim();
-        if (!raw)
-            return null;
-        const compact = raw.replace(/\s/g, '');
-        const hasDot = compact.includes('.');
-        const hasComma = compact.includes(',');
-        let normalized = compact;
-        if (hasDot && hasComma) {
-            const lastDot = compact.lastIndexOf('.');
-            const lastComma = compact.lastIndexOf(',');
-            const decimalSep = lastDot > lastComma ? '.' : ',';
-            const thousandSep = decimalSep === '.' ? ',' : '.';
-            normalized = compact.split(thousandSep).join('');
-            if (decimalSep === ',')
-                normalized = normalized.replace(',', '.');
-        }
-        else if (hasComma) {
-            normalized = compact.replace(/\./g, '').replace(',', '.');
-        }
-        else {
-            normalized = compact.replace(/,/g, '');
-        }
-        const n = Number(normalized);
-        if (Number.isNaN(n) || !Number.isFinite(n))
-            return null;
-        return n;
+        return parseLocaleNumber(value);
     }
     function matchesRelatorioTotalFilter(actual, operator, expectedRaw) {
         const expected = parseRelatorioNumericFilterValue(expectedRaw);
@@ -292,6 +268,24 @@ async function initApp() {
                 colSpan: item.colSpan,
             })),
         }));
+    }
+    function getLayoutEditorData(tipoId) {
+        const resolvedTipoId = String(tipoId || '').trim();
+        if (!resolvedTipoId)
+            return [];
+        return buildSectionGroupsForTipo(resolvedTipoId, { includeEmptySections: true }).map((group) => {
+            const secao = group.key === '__sem_secao__' ? null : state.secoes.find((item) => item.id === group.key) || null;
+            return {
+                key: group.key,
+                nome: group.nome,
+                cabecalho: secao?.cabecalho || '',
+                rodape: secao?.rodape || '',
+                items: group.items.map((item) => ({
+                    attr: clone(item.attr),
+                    colSpan: item.colSpan,
+                })),
+            };
+        });
     }
     function getSnapshot() {
         return {
@@ -400,6 +394,11 @@ async function initApp() {
         const safeSecaoId = secaoId && state.secoes.some((s) => s.id === secaoId) ? secaoId : '';
         const peso = pesoRaw === '' ? null : Number(pesoRaw);
         const atributoId = String(payload?.id || '').trim();
+        const nextTemplateTexto = tipoCampo === 'texto_placeholder'
+            ? templateTexto
+            : (tipoCampo === 'currency'
+                ? serializeCurrencyConfig(payload?.currencySymbol !== false)
+                : '');
         if (atributoId) {
             const atributo = state.atributos.find((item) => item.id === atributoId);
             if (!atributo) {
@@ -414,7 +413,7 @@ async function initApp() {
             atributo.validador = validador;
             atributo.peso = peso;
             atributo.mascara = mascara;
-            atributo.templateTexto = tipoCampo === 'texto_placeholder' ? templateTexto : '';
+            atributo.templateTexto = nextTemplateTexto;
             delete atributo.textoBase;
             syncLayoutsForTipo(oldTipoId);
             syncLayoutsForTipo(tipoId);
@@ -429,7 +428,7 @@ async function initApp() {
                 validador,
                 peso,
                 mascara,
-                templateTexto: tipoCampo === 'texto_placeholder' ? templateTexto : '',
+                templateTexto: nextTemplateTexto,
             });
             syncLayoutsForTipo(tipoId);
         }
@@ -604,7 +603,7 @@ async function initApp() {
         const filteredDocs = [];
         const rows = [];
         const numeroTotals = attrs.map((attr) => {
-            if (attr.tipoCampo !== 'numero')
+            if (attr.tipoCampo !== 'numero' && attr.tipoCampo !== 'currency')
                 return null;
             return totalAttrSet.has(attr.id) ? 0 : null;
         });
@@ -612,9 +611,8 @@ async function initApp() {
             const raw = String(value ?? '').trim();
             if (!raw)
                 return { empty: true, kind: 'text', value: '' };
-            if (attr?.tipoCampo === 'numero') {
-                const normalized = raw.replace(/\./g, '').replace(',', '.');
-                const n = Number(normalized);
+            if (attr?.tipoCampo === 'numero' || attr?.tipoCampo === 'currency') {
+                const n = parseLocaleNumber(raw);
                 if (!Number.isNaN(n) && Number.isFinite(n))
                     return { empty: false, kind: 'number', value: n };
             }
@@ -633,32 +631,7 @@ async function initApp() {
             return { empty: false, kind: 'text', value: raw.toLocaleLowerCase() };
         };
         const parseNumericValue = (value) => {
-            const raw = String(value ?? '').trim();
-            if (!raw)
-                return null;
-            const compact = raw.replace(/\s/g, '');
-            const hasDot = compact.includes('.');
-            const hasComma = compact.includes(',');
-            let normalized = compact;
-            if (hasDot && hasComma) {
-                const lastDot = compact.lastIndexOf('.');
-                const lastComma = compact.lastIndexOf(',');
-                const decimalSep = lastDot > lastComma ? '.' : ',';
-                const thousandSep = decimalSep === '.' ? ',' : '.';
-                normalized = compact.split(thousandSep).join('');
-                if (decimalSep === ',')
-                    normalized = normalized.replace(',', '.');
-            }
-            else if (hasComma) {
-                normalized = compact.replace(/\./g, '').replace(',', '.');
-            }
-            else {
-                normalized = compact.replace(/,/g, '');
-            }
-            const n = Number(normalized);
-            if (Number.isNaN(n) || !Number.isFinite(n))
-                return null;
-            return n;
+            return parseLocaleNumber(value);
         };
         for (const doc of docs) {
             const ctx = buildPlaceholderContext(tipoId, doc.valores, doc.titulo);
@@ -715,6 +688,11 @@ async function initApp() {
         const totalValues = somarNumericos
             ? numeroTotals.map((x) => (x === null ? '' : Number(x).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })))
             : [];
+        const cfgBlockOrder = matchedConfig?.reportBlockOrder;
+        const cfgBlockVisibility = matchedConfig?.reportBlockVisibility;
+        const cfgBlockSpacerHeights = matchedConfig?.reportBlockSpacerHeights;
+        const cfgFooterMode = matchedConfig?.reportFooterMode;
+        const cfgFooterAnchor = matchedConfig?.reportFooterAnchor;
         const sumOfSumsValue = somarNumericos && sumOfSumsEnabled
             ? numeroTotals.reduce((acc, total, idx) => {
                 const attr = attrs[idx];
@@ -727,13 +705,28 @@ async function initApp() {
             : null;
         const totalsByKey = new Map();
         attrs.forEach((attr, idx) => {
-            if (attr.tipoCampo !== 'numero')
+            if (attr.tipoCampo !== 'numero' && attr.tipoCampo !== 'currency')
                 return;
             totalsByKey.set(`attr_total:${attr.id}`, numeroTotals[idx] === null ? null : Number(numeroTotals[idx]));
         });
         totalsByKey.set('sum_of_sums', sumOfSumsValue === null ? null : Number(sumOfSumsValue));
         const failedTotalFilters = totalFilters.filter((filter) => (!matchesRelatorioTotalFilter(totalsByKey.get(filter.key), filter.operator, filter.value)));
         if (failedTotalFilters.length > 0) {
+            relatorioLastResult = {
+                tipoId,
+                tipoNome: tipoNome(tipoId),
+                columns,
+                colSpans,
+                blockOrder: normalizeRelatorioBlockOrder(cfgBlockOrder || relatorioSavedBlockOrder),
+                blockVisibility: normalizeRelatorioBlockVisibility(cfgBlockVisibility || relatorioSavedBlockVisibility, cfgBlockOrder || relatorioSavedBlockOrder),
+                blockSpacerHeights: normalizeRelatorioBlockSpacerHeights(cfgBlockSpacerHeights || relatorioSavedBlockSpacerHeights, cfgBlockOrder || relatorioSavedBlockOrder),
+                footerMode: (cfgFooterMode || relatorioSavedFooterMode) === 'after_block' ? 'after_block' : 'fixed_bottom',
+                footerAnchor: ['cabecalho', 'info_geracao', 'tabela'].includes(String(cfgFooterAnchor || relatorioSavedFooterAnchor || ''))
+                    ? (cfgFooterAnchor || relatorioSavedFooterAnchor)
+                    : 'tabela',
+                totalValues: [],
+                rows: [],
+            };
             return {
                 ok: true,
                 result: {
@@ -748,6 +741,21 @@ async function initApp() {
                 },
             };
         }
+        relatorioLastResult = {
+            tipoId,
+            tipoNome: tipoNome(tipoId),
+            columns,
+            colSpans,
+            blockOrder: normalizeRelatorioBlockOrder(cfgBlockOrder || relatorioSavedBlockOrder),
+            blockVisibility: normalizeRelatorioBlockVisibility(cfgBlockVisibility || relatorioSavedBlockVisibility, cfgBlockOrder || relatorioSavedBlockOrder),
+            blockSpacerHeights: normalizeRelatorioBlockSpacerHeights(cfgBlockSpacerHeights || relatorioSavedBlockSpacerHeights, cfgBlockOrder || relatorioSavedBlockOrder),
+            footerMode: (cfgFooterMode || relatorioSavedFooterMode) === 'after_block' ? 'after_block' : 'fixed_bottom',
+            footerAnchor: ['cabecalho', 'info_geracao', 'tabela'].includes(String(cfgFooterAnchor || relatorioSavedFooterAnchor || ''))
+                ? (cfgFooterAnchor || relatorioSavedFooterAnchor)
+                : 'tabela',
+            totalValues,
+            rows,
+        };
         return {
             ok: true,
             result: {
@@ -786,6 +794,7 @@ async function initApp() {
         getReportTiposData,
         getReportConfigsData,
         getRelatorioAttributeGroups,
+        getLayoutEditorData,
         getSecoesForTipo: (tipoId) => getSecoesForTipo(String(tipoId || '')).map((secao) => clone(secao)),
         getAtributosByTipo: (tipoId) => getAtributosByTipo(String(tipoId || '')).map((atributo) => clone(atributo)),
         saveTipo,
@@ -795,6 +804,23 @@ async function initApp() {
         saveReportConfig,
         deleteReportConfig,
         generateReport,
+        exportRelatorioPdf: () => exportRelatorioPdf(),
+        updateLayoutSpan: (tipoId, attrId, span) => updateLayoutSpan(String(tipoId || ''), String(attrId || ''), span),
+        swapLayoutItems: (tipoId, attrA, attrB) => swapLayoutItems(String(tipoId || ''), String(attrA || ''), String(attrB || '')),
+        moveAttributeToSection: (tipoId, attrId, targetSectionKey) => moveAttributeToSection(String(tipoId || ''), String(attrId || ''), String(targetSectionKey || '')),
+        moveLayoutSectionBefore: (tipoId, draggedKey, targetKey) => moveLayoutSectionBefore(String(tipoId || ''), String(draggedKey || ''), String(targetKey || '')),
+        resetLayoutForTipo: (tipoId) => {
+            const resolvedTipoId = String(tipoId || '').trim();
+            if (!resolvedTipoId)
+                return { ok: false };
+            delete state.layouts[resolvedTipoId];
+            delete state.layoutSections[resolvedTipoId];
+            syncLayoutsForTipo(resolvedTipoId);
+            syncLayoutSectionsForTipo(resolvedTipoId);
+            saveState();
+            renderAll();
+            return { ok: true };
+        },
         deleteTipo: (tipoId) => deleteTipo(tipoId),
         deleteSecao: (secaoId) => deleteSecao(secaoId),
         deleteAtributo: (atributoId) => deleteAtributo(atributoId),
@@ -1059,6 +1085,27 @@ function buildInput(attr, id, value) {
         input.addEventListener('change', () => clearFieldError(input));
         return input;
     }
+    if (attr.tipoCampo === 'currency') {
+        input.type = 'text';
+        input.inputMode = 'decimal';
+        const currencyConfig = getCurrencyConfig(attr);
+        const initialValue = parseLocaleNumber(value);
+        input.value = initialValue === null ? String(value || '') : formatCurrencyNumber(initialValue, currencyConfig);
+        input.addEventListener('focus', () => {
+            const parsed = parseLocaleNumber(input.value);
+            if (parsed !== null) {
+                input.value = String(parsed).replace('.', ',');
+            }
+        });
+        input.addEventListener('blur', () => {
+            const parsed = parseLocaleNumber(input.value);
+            input.value = parsed === null ? '' : formatCurrencyNumber(parsed, currencyConfig);
+            clearFieldError(input);
+        });
+        input.addEventListener('input', () => clearFieldError(input));
+        input.addEventListener('change', () => clearFieldError(input));
+        return input;
+    }
     if (attr.mascara) {
         input.type = 'text';
         input.value = applyMask(String(value), attr.mascara);
@@ -1106,7 +1153,9 @@ function buildPlaceholderContext(tipoId, valores, titulo = '') {
     put('documento_titulo', titulo);
     for (const attr of attrs) {
         const raw = valores[attr.id];
-        const value = attr.tipoCampo === 'boolean' ? (raw ? 'Sim' : 'Nao') : raw ?? '';
+        const value = attr.tipoCampo === 'boolean'
+            ? (raw ? 'Sim' : 'Nao')
+            : (attr.tipoCampo === 'currency' ? resolveAttrValueForOutput(attr, raw, ctx) : raw ?? '');
         put(attr.id, value);
         put(attr.nome, value);
     }
@@ -1365,6 +1414,8 @@ function defaultColSpanForAttr(attr) {
         return 4;
     if (attr.tipoCampo === 'numero')
         return 4;
+    if (attr.tipoCampo === 'currency')
+        return 4;
     return 6;
 }
 // @ts-nocheck
@@ -1437,6 +1488,9 @@ function editAtributo(attrId) {
     ui.atributoPeso.value = attr.peso ?? '';
     ui.atributoMascara.value = attr.mascara || '';
     ui.atributoTemplateTexto.value = attr.templateTexto || '';
+    if (ui.atributoCurrencySymbol) {
+        ui.atributoCurrencySymbol.checked = getCurrencyConfig(attr).symbol !== false;
+    }
     toggleAtributoTemplateConfig();
     refreshMaterializeUI();
     renderAtributos();
@@ -1913,6 +1967,25 @@ function focusSecaoCard(secaoId) {
     editSecao(secaoId);
 }
 // @ts-nocheck
+function formatCurrencyNumber(value, options = {}) {
+    const parsed = typeof value === 'number' ? value : parseLocaleNumber(value);
+    if (parsed === null)
+        return '';
+    const symbol = options?.symbol !== false;
+    if (symbol) {
+        return parsed.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    }
+    return parsed.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+}
+// @ts-nocheck
 function formatCurrentDateBr() {
     const now = new Date();
     const dd = String(now.getDate()).padStart(2, '0');
@@ -1984,7 +2057,7 @@ function generateRelatorio() {
     const filteredDocs = [];
     const rows = [];
     const numeroTotals = attrs.map((attr) => {
-        if (attr.tipoCampo !== 'numero')
+        if (attr.tipoCampo !== 'numero' && attr.tipoCampo !== 'currency')
             return null;
         if (sumAllNumericFallback)
             return 0;
@@ -1994,9 +2067,8 @@ function generateRelatorio() {
         const raw = String(value ?? '').trim();
         if (!raw)
             return { empty: true, kind: 'text', value: '' };
-        if (attr?.tipoCampo === 'numero') {
-            const normalized = raw.replace(/\./g, '').replace(',', '.');
-            const n = Number(normalized);
+        if (attr?.tipoCampo === 'numero' || attr?.tipoCampo === 'currency') {
+            const n = parseLocaleNumber(raw);
             if (!Number.isNaN(n) && Number.isFinite(n))
                 return { empty: false, kind: 'number', value: n };
         }
@@ -2015,32 +2087,7 @@ function generateRelatorio() {
         return { empty: false, kind: 'text', value: raw.toLocaleLowerCase() };
     };
     const parseNumericValue = (value) => {
-        const raw = String(value ?? '').trim();
-        if (!raw)
-            return null;
-        const compact = raw.replace(/\s/g, '');
-        const hasDot = compact.includes('.');
-        const hasComma = compact.includes(',');
-        let normalized = compact;
-        if (hasDot && hasComma) {
-            const lastDot = compact.lastIndexOf('.');
-            const lastComma = compact.lastIndexOf(',');
-            const decimalSep = lastDot > lastComma ? '.' : ',';
-            const thousandSep = decimalSep === '.' ? ',' : '.';
-            normalized = compact.split(thousandSep).join('');
-            if (decimalSep === ',')
-                normalized = normalized.replace(',', '.');
-        }
-        else if (hasComma) {
-            normalized = compact.replace(/\./g, '').replace(',', '.');
-        }
-        else {
-            normalized = compact.replace(/,/g, '');
-        }
-        const n = Number(normalized);
-        if (Number.isNaN(n) || !Number.isFinite(n))
-            return null;
-        return n;
+        return parseLocaleNumber(value);
     };
     for (const doc of docs) {
         const ctx = buildPlaceholderContext(tipoId, doc.valores, doc.titulo);
@@ -2137,6 +2184,21 @@ function getAtributosByTipo(tipoId) {
         return a.idx - b.idx;
     })
         .map((x) => x.attr);
+}
+// @ts-nocheck
+function getCurrencyConfig(attr) {
+    const raw = String(attr?.templateTexto || '').trim();
+    if (!raw)
+        return { symbol: true };
+    try {
+        const parsed = JSON.parse(raw);
+        return {
+            symbol: parsed?.symbol !== false,
+        };
+    }
+    catch {
+        return { symbol: true };
+    }
 }
 // @ts-nocheck
 function getDisplayTarget(field) {
@@ -2835,7 +2897,7 @@ function normalizeRelatorioTotalAttrIds(raw, tipoId = '') {
     if (tipoId && typeof getAtributosByTipo === 'function') {
         try {
             allowed = new Set(getAtributosByTipo(tipoId)
-                .filter((a) => a.tipoCampo === 'numero')
+                .filter((a) => a.tipoCampo === 'numero' || a.tipoCampo === 'currency')
                 .map((a) => a.id));
         }
         catch {
@@ -2870,6 +2932,7 @@ function onAtributoSubmit(e) {
     const tipoCampo = ui.atributoTipoCampo.value;
     const secaoId = ui.atributoSecao.value;
     const templateTexto = (ui.atributoTemplateTexto.value || '').trim();
+    const currencySymbol = Boolean(ui.atributoCurrencySymbol?.checked);
     const validador = ui.atributoValidador.value.trim();
     const pesoRaw = ui.atributoPeso.value.trim();
     const mascara = ui.atributoMascara.value.trim();
@@ -2892,6 +2955,9 @@ function onAtributoSubmit(e) {
         }
     }
     const safeSecaoId = secaoId && state.secoes.some((s) => s.id === secaoId) ? secaoId : '';
+    const nextTemplateTexto = tipoCampo === 'texto_placeholder'
+        ? templateTexto
+        : (tipoCampo === 'currency' ? serializeCurrencyConfig(currencySymbol) : '');
     if (editId) {
         const attr = state.atributos.find((a) => a.id === editId);
         if (!attr)
@@ -2904,7 +2970,7 @@ function onAtributoSubmit(e) {
         attr.validador = validador;
         attr.peso = peso;
         attr.mascara = mascara;
-        attr.templateTexto = tipoCampo === 'texto_placeholder' ? templateTexto : '';
+        attr.templateTexto = nextTemplateTexto;
         delete attr.textoBase;
         syncLayoutsForTipo(oldTipoId);
         syncLayoutsForTipo(tipoId);
@@ -2919,7 +2985,7 @@ function onAtributoSubmit(e) {
             validador,
             peso,
             mascara,
-            templateTexto: tipoCampo === 'texto_placeholder' ? templateTexto : '',
+            templateTexto: nextTemplateTexto,
         });
         syncLayoutsForTipo(tipoId);
     }
@@ -3180,6 +3246,38 @@ function openTab(tabId) {
     if (instance)
         instance.select(tabId);
 }
+// @ts-nocheck
+function parseLocaleNumber(value) {
+    const raw = String(value ?? '').trim();
+    if (!raw)
+        return null;
+    const sanitized = raw.replace(/[^\d,.\-]/g, '');
+    if (!sanitized)
+        return null;
+    const compact = sanitized.replace(/\s/g, '');
+    const hasDot = compact.includes('.');
+    const hasComma = compact.includes(',');
+    let normalized = compact;
+    if (hasDot && hasComma) {
+        const lastDot = compact.lastIndexOf('.');
+        const lastComma = compact.lastIndexOf(',');
+        const decimalSep = lastDot > lastComma ? '.' : ',';
+        const thousandSep = decimalSep === '.' ? ',' : '.';
+        normalized = compact.split(thousandSep).join('');
+        if (decimalSep === ',')
+            normalized = normalized.replace(',', '.');
+    }
+    else if (hasComma) {
+        normalized = compact.replace(/\./g, '').replace(',', '.');
+    }
+    else {
+        normalized = compact.replace(/,/g, '');
+    }
+    const parsed = Number(normalized);
+    if (Number.isNaN(parsed) || !Number.isFinite(parsed))
+        return null;
+    return parsed;
+}
 function parseValidatorRules(raw) {
     const result = {
         hasNumber: false,
@@ -3410,7 +3508,7 @@ function renderAtributos() {
         <small>validador: ${escapeHtml(attr.validador || '-')}</small>
         <small>peso: ${escapeHtml(attr.peso ?? '-')}</small>
         <small>mascara: ${escapeHtml(attr.mascara || '-')}</small>
-        <small>template: ${escapeHtml(attr.templateTexto || '-')}</small>
+        <small>template: ${escapeHtml(attr.tipoCampo === 'currency' ? `symbol=${getCurrencyConfig(attr).symbol !== false ? 'on' : 'off'}` : (attr.templateTexto || '-'))}</small>
       </div>
       <div class="item-actions">
         <button type="button" class="btn-flat btn-small" data-edit="${attr.id}">Editar</button>
@@ -3744,18 +3842,44 @@ function renderPdfSectionTables({ pdf, documento, pdfVisivel, placeholderCtx, pa
     const semSecaoKey = '__sem_secao__';
     const sectionHeaderHeight = 22;
     const sectionPadding = 10;
-    const tableHeaderHeight = 18;
-    const rowLineHeight = 11;
-    const rowPaddingY = 5;
-    const col1Ratio = 0.36;
+    const sectionGap = 10;
+    const gridGap = 8;
     const sectionInfoGap = 6;
     const sectionInfoLineHeight = 10.5;
     const sectionInfoPadY = 5;
+    const valueLineHeight = 11;
+    const labelLineHeight = 10;
+    const itemPaddingX = 8;
+    const itemPaddingY = 8;
+    const gridColumns = 12;
+    const getItemWidth = (tableWidth, colSpan) => {
+        const span = Math.max(1, Math.min(gridColumns, Number(colSpan || 6)));
+        const single = (tableWidth - gridGap * (gridColumns - 1)) / gridColumns;
+        return single * span + gridGap * (span - 1);
+    };
+    const packRows = (items) => {
+        const rows = [];
+        let current = [];
+        let used = 0;
+        for (const item of items) {
+            const span = Math.max(1, Math.min(gridColumns, Number(item.colSpan || 6)));
+            if (current.length && used + span > gridColumns) {
+                rows.push(current);
+                current = [];
+                used = 0;
+            }
+            current.push({ ...item, colSpan: span });
+            used += span;
+        }
+        if (current.length)
+            rows.push(current);
+        return rows;
+    };
     for (const group of groups) {
         const secao = group.key === semSecaoKey ? null : state.secoes.find((s) => s.id === group.key);
         const secaoCabecalho = resolveTemplateTextForOutput(secao?.cabecalho || '', placeholderCtx).trim();
         const secaoRodape = resolveTemplateTextForOutput(secao?.rodape || '', placeholderCtx).trim();
-        const rows = group.items
+        const items = group.items
             .filter((item) => pdfVisivel[item.attr.id] !== false && item.attr.tipoCampo !== 'assinatura')
             .map((item) => {
             const attr = item.attr;
@@ -3763,43 +3887,41 @@ function renderPdfSectionTables({ pdf, documento, pdfVisivel, placeholderCtx, pa
             const value = resolveAttrValueForOutput(attr, raw, placeholderCtx);
             const isPlaceholderTemplate = attr.tipoCampo === 'texto_placeholder' || attr.tipoCampo === 'textarea_template';
             const hideFieldName = isPlaceholderTemplate || attr.tipoCampo === 'textarea' || attr.tipoCampo === 'textarea_template';
-            const campo = hideFieldName ? '' : String(attr.nome);
-            return { campo, valor: String(value), fullwidth: isPlaceholderTemplate };
+            return {
+                attr,
+                colSpan: isPlaceholderTemplate ? 12 : item.colSpan,
+                campo: hideFieldName ? '' : String(attr.nome),
+                valor: String(value),
+                fullwidth: isPlaceholderTemplate,
+            };
         });
-        if (rows.length === 0)
+        if (items.length === 0)
             continue;
         const tableX = margin + (group.key === semSecaoKey ? 0 : sectionPadding);
         const tableWidth = contentWidth - (group.key === semSecaoKey ? 0 : sectionPadding * 2);
-        const col1Width = tableWidth * col1Ratio;
-        const col2Width = tableWidth - col1Width;
-        const measuredRows = rows.map((row) => {
-            if (row.fullwidth) {
-                const lineHeight = rowLineHeight + 2;
-                const valorLines = pdf.splitTextToSize(row.valor, tableWidth - 10);
-                const height = Math.max(1, valorLines.length) * lineHeight + rowPaddingY * 2;
+        const packedRows = packRows(items).map((rowItems) => {
+            const measuredItems = rowItems.map((item) => {
+                const cardWidth = getItemWidth(tableWidth, item.colSpan);
+                const labelLines = item.campo
+                    ? pdf.splitTextToSize(item.campo, Math.max(24, cardWidth - itemPaddingX * 2))
+                    : [];
+                const valueLines = pdf.splitTextToSize(item.valor, Math.max(24, cardWidth - itemPaddingX * 2));
+                const height = itemPaddingY * 2
+                    + (labelLines.length ? labelLines.length * labelLineHeight + 4 : 0)
+                    + Math.max(1, valueLines.length) * valueLineHeight;
                 return {
-                    ...row,
-                    campoLines: [],
-                    valorLines,
+                    ...item,
+                    width: cardWidth,
+                    labelLines,
+                    valueLines,
                     height,
-                    lineHeight,
-                    fontSize: 12,
                 };
-            }
-            const campoLines = pdf.splitTextToSize(row.campo, col1Width - 8);
-            const valorLines = pdf.splitTextToSize(row.valor, col2Width - 8);
-            const height = Math.max(campoLines.length, valorLines.length) * rowLineHeight + rowPaddingY * 2;
+            });
             return {
-                ...row,
-                campoLines,
-                valorLines,
-                height,
-                lineHeight: rowLineHeight,
-                fontSize: 9.5,
+                items: measuredItems,
+                height: Math.max(...measuredItems.map((item) => item.height)),
             };
         });
-        const hasOnlyFullwidthRows = measuredRows.every((row) => row.fullwidth);
-        const effectiveTableHeaderHeight = hasOnlyFullwidthRows ? 0 : tableHeaderHeight;
         const sectionInfoWidth = tableWidth - 8;
         const headerLines = group.key !== semSecaoKey && secaoCabecalho
             ? pdf.splitTextToSize(secaoCabecalho, sectionInfoWidth)
@@ -3811,97 +3933,80 @@ function renderPdfSectionTables({ pdf, documento, pdfVisivel, placeholderCtx, pa
         const footerInfoHeight = footerLines.length > 0 ? footerLines.length * sectionInfoLineHeight + sectionInfoPadY * 2 : 0;
         const headerInfoTotal = headerInfoHeight > 0 ? headerInfoHeight + sectionInfoGap : 0;
         const footerInfoTotal = footerInfoHeight > 0 ? sectionInfoGap + footerInfoHeight : 0;
-        const tableBodyHeight = measuredRows.reduce((sum, r) => sum + r.height, 0);
-        const tableHeight = effectiveTableHeaderHeight + tableBodyHeight;
-        const wrapperHeight = group.key === semSecaoKey
-            ? tableHeight
-            : sectionHeaderHeight + sectionPadding + headerInfoTotal + tableHeight + footerInfoTotal + sectionPadding;
-        ensureSpace(wrapperHeight + 10);
-        let cursorY = y;
-        if (group.key !== semSecaoKey) {
+        const renderSectionHeader = () => {
+            if (group.key === semSecaoKey)
+                return;
+            ensureSpace(sectionHeaderHeight + sectionPadding);
             pdf.setDrawColor(...palette.cardBorder);
-            pdf.setFillColor(...palette.cardBg);
-            pdf.roundedRect(margin, y, contentWidth, wrapperHeight, 4, 4, 'FD');
             pdf.setFillColor(...palette.chipBg);
-            pdf.roundedRect(margin, y, contentWidth, sectionHeaderHeight, 4, 4, 'F');
+            pdf.roundedRect(margin, y, contentWidth, sectionHeaderHeight, 4, 4, 'FD');
             pdf.setFont('helvetica', 'bold');
             pdf.setFontSize(11);
             pdf.setTextColor(...palette.textMain);
             pdf.text(group.nome, margin + sectionPadding, y + 15);
-            cursorY = y + sectionHeaderHeight + sectionPadding;
+            y += sectionHeaderHeight + sectionPadding;
             if (headerInfoHeight > 0) {
+                ensureSpace(headerInfoHeight + sectionInfoGap);
                 pdf.setDrawColor(...palette.cardBorder);
-                pdf.setFillColor(...palette.chipBg);
-                pdf.rect(tableX, cursorY, tableWidth, headerInfoHeight, 'FD');
+                pdf.setFillColor(...palette.cardBg);
+                pdf.roundedRect(tableX, y, tableWidth, headerInfoHeight, 4, 4, 'FD');
                 pdf.setFont('helvetica', 'normal');
                 pdf.setFontSize(9.2);
                 pdf.setTextColor(...palette.textMuted);
-                let headerY = cursorY + sectionInfoPadY + 7;
+                let headerY = y + sectionInfoPadY + 7;
                 for (const line of headerLines) {
                     pdf.text(line, tableX + 4, headerY);
                     headerY += sectionInfoLineHeight;
                 }
-                cursorY += headerInfoHeight + sectionInfoGap;
+                y += headerInfoHeight + sectionInfoGap;
             }
-        }
-        else {
-            cursorY = y;
-        }
-        if (effectiveTableHeaderHeight > 0) {
-            pdf.setDrawColor(...palette.cardBorder);
-            pdf.setFillColor(...palette.chipBg);
-            pdf.rect(tableX, cursorY, tableWidth, effectiveTableHeaderHeight, 'FD');
-            pdf.line(tableX + col1Width, cursorY, tableX + col1Width, cursorY + effectiveTableHeaderHeight);
-        }
-        let rowY = cursorY + effectiveTableHeaderHeight;
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(9.5);
-        pdf.setTextColor(...palette.textMuted);
-        for (const row of measuredRows) {
-            pdf.rect(tableX, rowY, tableWidth, row.height);
-            if (!row.fullwidth) {
-                pdf.line(tableX + col1Width, rowY, tableX + col1Width, rowY + row.height);
-            }
-            if (row.fullwidth) {
-                pdf.setFontSize(row.fontSize);
+        };
+        renderSectionHeader();
+        for (const row of packedRows) {
+            ensureSpace(row.height + gridGap);
+            let x = tableX;
+            for (const item of row.items) {
+                pdf.setDrawColor(...palette.cardBorder);
+                pdf.setFillColor(...palette.cardBg);
+                pdf.roundedRect(x, y, item.width, row.height, 4, 4, 'FD');
+                let textY = y + itemPaddingY + 8;
+                if (item.labelLines.length) {
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(9);
+                    pdf.setTextColor(...palette.textMuted);
+                    for (const line of item.labelLines) {
+                        pdf.text(line, x + itemPaddingX, textY);
+                        textY += labelLineHeight;
+                    }
+                    textY += 4;
+                }
+                pdf.setFont('helvetica', item.fullwidth ? 'normal' : 'bold');
+                pdf.setFontSize(item.fullwidth ? 11.5 : 10.2);
                 pdf.setTextColor(...palette.textMain);
-                let vY = rowY + rowPaddingY + 9;
-                for (const line of row.valorLines) {
-                    pdf.text(line, tableX + 6, vY);
-                    vY += row.lineHeight;
+                for (const line of item.valueLines) {
+                    pdf.text(line, x + itemPaddingX, textY);
+                    textY += valueLineHeight;
                 }
+                x += item.width + gridGap;
             }
-            else {
-                pdf.setFontSize(row.fontSize);
-                pdf.setTextColor(...palette.textMuted);
-                let cY = rowY + rowPaddingY + 8;
-                for (const line of row.campoLines) {
-                    pdf.text(line, tableX + 4, cY);
-                    cY += row.lineHeight;
-                }
-                let vY = rowY + rowPaddingY + 8;
-                for (const line of row.valorLines) {
-                    pdf.text(line, tableX + col1Width + 4, vY);
-                    vY += row.lineHeight;
-                }
-            }
-            rowY += row.height;
+            y += row.height + gridGap;
         }
         if (footerInfoHeight > 0) {
-            const footerY = rowY + sectionInfoGap;
+            ensureSpace(footerInfoHeight + sectionGap);
             pdf.setDrawColor(...palette.cardBorder);
-            pdf.setFillColor(...palette.chipBg);
-            pdf.rect(tableX, footerY, tableWidth, footerInfoHeight, 'FD');
+            pdf.setFillColor(...palette.cardBg);
+            pdf.roundedRect(tableX, y, tableWidth, footerInfoHeight, 4, 4, 'FD');
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(9.2);
             pdf.setTextColor(...palette.textMuted);
-            let footerLineY = footerY + sectionInfoPadY + 7;
+            let footerLineY = y + sectionInfoPadY + 7;
             for (const line of footerLines) {
                 pdf.text(line, tableX + 4, footerLineY);
                 footerLineY += sectionInfoLineHeight;
             }
+            y += footerInfoHeight;
         }
-        y += wrapperHeight + 10;
+        y += sectionGap;
     }
     return { y, signatureAttrs };
 }
@@ -4022,7 +4127,7 @@ function renderRelatorioAtributosByTipo(tipoId, selectAll = false) {
             span.textContent = attr.nome;
             label.appendChild(input);
             label.appendChild(span);
-            if (attr.tipoCampo === 'numero') {
+            if (attr.tipoCampo === 'numero' || attr.tipoCampo === 'currency') {
                 const totalWrap = document.createElement('span');
                 totalWrap.style.marginLeft = '8px';
                 totalWrap.style.display = 'inline-flex';
@@ -4372,13 +4477,28 @@ function renderRelatorioLayoutCanvas(tipoId, configId) {
     }
     const attrs = getAtributosByTipo(tipoId);
     const attrById = new Map(attrs.map((a) => [a.id, a]));
-    const grid = document.createElement('div');
-    grid.className = 'layout-grid';
+    const sectionOrder = syncLayoutSectionsForTipo(tipoId);
+    const groups = new Map();
+    for (const key of sectionOrder) {
+        groups.set(key, { key, nome: sectionNameFromKey(key), items: [] });
+    }
     for (let i = 0; i < relatorioLayoutWorking.length; i += 1) {
         const item = relatorioLayoutWorking[i];
         const attr = attrById.get(item.attrId);
         if (!attr)
             continue;
+        const key = sectionKeyFromAttr(attr);
+        if (!groups.has(key))
+            groups.set(key, { key, nome: sectionNameFromKey(key), items: [] });
+        groups.get(key).items.push({ item, attr, index: i });
+    }
+    const orderedGroups = [
+        ...sectionOrder.map((key) => groups.get(key)).filter((group) => group && group.items.length),
+        ...Array.from(groups.values()).filter((group) => !sectionOrder.includes(group.key) && group.items.length),
+    ];
+    const sectionsWrap = document.createElement('div');
+    sectionsWrap.className = 'layout-sections';
+    const createCard = ({ item, attr, index }, grid) => {
         const card = document.createElement('div');
         card.className = 'layout-item';
         card.style.gridColumn = `span ${item.colSpan}`;
@@ -4395,12 +4515,12 @@ function renderRelatorioLayoutCanvas(tipoId, configId) {
           </select>
         </label>
         <div class="layout-item-actions">
-          <button type="button" class="btn-flat btn-small" data-report-layout-up="${item.attrId}" ${i === 0 ? 'disabled' : ''}>↑</button>
-          <button type="button" class="btn-flat btn-small" data-report-layout-down="${item.attrId}" ${i === relatorioLayoutWorking.length - 1 ? 'disabled' : ''}>↓</button>
+          <button type="button" class="btn-flat btn-small" data-report-layout-up="${item.attrId}" ${index === 0 ? 'disabled' : ''}>↑</button>
+          <button type="button" class="btn-flat btn-small" data-report-layout-down="${item.attrId}" ${index === relatorioLayoutWorking.length - 1 ? 'disabled' : ''}>↓</button>
         </div>
       </div>
     `;
-        if (attr.tipoCampo === 'numero') {
+        if (attr.tipoCampo === 'numero' || attr.tipoCampo === 'currency') {
             const sumLabel = document.createElement('label');
             sumLabel.className = 'layout-block-visibility';
             sumLabel.style.marginTop = '6px';
@@ -4464,9 +4584,26 @@ function renderRelatorioLayoutCanvas(tipoId, configId) {
             moveRelatorioLayoutWorkingBefore(dragged, item.attrId);
             renderRelatorioLayoutCanvas(tipoId, configId);
         });
-        grid.appendChild(card);
+        return card;
+    };
+    for (const group of orderedGroups) {
+        const section = document.createElement('div');
+        section.className = `layout-section ${group.key === '__sem_secao__' ? 'layout-section-fixed-top' : ''}`;
+        section.innerHTML = `
+      <div class="layout-section-header">
+        <strong>${escapeHtml(group.nome)}</strong>
+        <small>${group.key === '__sem_secao__' ? 'sem secao' : 'atributos da secao'}</small>
+      </div>
+    `;
+        const grid = document.createElement('div');
+        grid.className = 'layout-grid';
+        for (const entry of group.items) {
+            grid.appendChild(createCard(entry, grid));
+        }
+        section.appendChild(grid);
+        sectionsWrap.appendChild(section);
     }
-    ui.relatorioLayoutCanvas.appendChild(grid);
+    ui.relatorioLayoutCanvas.appendChild(sectionsWrap);
 }
 // @ts-nocheck
 function renderRelatorioLayoutConfigOptions(tipoId) {
@@ -4896,6 +5033,8 @@ function resetAtributoForm() {
     ui.atributoPeso.value = '';
     ui.atributoMascara.value = '';
     ui.atributoTemplateTexto.value = '';
+    if (ui.atributoCurrencySymbol)
+        ui.atributoCurrencySymbol.checked = true;
     toggleAtributoTemplateConfig();
     closeAppModal(ui.atributoModal);
 }
@@ -4979,6 +5118,12 @@ function resetTipoForm() {
 function resolveAttrValueForOutput(attr, raw, ctx) {
     if (attr.tipoCampo === 'boolean')
         return raw ? 'Sim' : 'Nao';
+    if (attr.tipoCampo === 'currency') {
+        const parsed = parseLocaleNumber(raw);
+        if (parsed === null)
+            return '-';
+        return formatCurrencyNumber(parsed, getCurrencyConfig(attr));
+    }
     let base = raw;
     if ((base === undefined || base === null || base === '') &&
         attr.tipoCampo === 'texto_placeholder') {
@@ -5117,8 +5262,41 @@ function saveRelatorioLayoutEditorConfig() {
     notify('Layout da configuracao de relatorio salvo.');
 }
 // @ts-nocheck
+let saveStateSnapshotTimer = null;
+let saveStateSnapshotInFlight = false;
+let saveStateSnapshotQueued = false;
+async function flushStateSnapshotToApi() {
+    if (saveStateSnapshotInFlight) {
+        saveStateSnapshotQueued = true;
+        return;
+    }
+    saveStateSnapshotInFlight = true;
+    saveStateSnapshotQueued = false;
+    try {
+        await pushStateSnapshotToApi();
+    }
+    catch (error) {
+        console.warn('[app-state] erro ao salvar snapshot na API', error);
+    }
+    finally {
+        saveStateSnapshotInFlight = false;
+        if (saveStateSnapshotQueued)
+            scheduleStateSnapshotToApi();
+    }
+}
+function scheduleStateSnapshotToApi() {
+    if (!APP_STATE_API_URL)
+        return;
+    if (saveStateSnapshotTimer !== null)
+        window.clearTimeout(saveStateSnapshotTimer);
+    saveStateSnapshotTimer = window.setTimeout(() => {
+        saveStateSnapshotTimer = null;
+        void flushStateSnapshotToApi();
+    }, 400);
+}
 function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    scheduleStateSnapshotToApi();
 }
 // @ts-nocheck
 function sectionKeyFromAttr(attr) {
@@ -5129,6 +5307,12 @@ function sectionNameFromKey(key) {
     if (key === '__sem_secao__')
         return 'Sem secao';
     return state.secoes.find((s) => s.id === key)?.nome || 'Sem secao';
+}
+// @ts-nocheck
+function serializeCurrencyConfig(symbol) {
+    return JSON.stringify({
+        symbol: symbol !== false,
+    });
 }
 // @ts-nocheck
 function swapLayoutItems(tipoId, attrA, attrB) {
@@ -5263,9 +5447,14 @@ function tipoNome(tipoId) {
 }
 // @ts-nocheck
 function toggleAtributoTemplateConfig() {
-    const show = ui.atributoTipoCampo.value === 'texto_placeholder';
+    const tipoCampo = ui.atributoTipoCampo.value;
+    const showTemplate = tipoCampo === 'texto_placeholder';
+    const showCurrency = tipoCampo === 'currency';
     if (ui.atributoTemplateWrap) {
-        ui.atributoTemplateWrap.style.display = show ? '' : 'none';
+        ui.atributoTemplateWrap.style.display = showTemplate ? '' : 'none';
+    }
+    if (ui.atributoCurrencyWrap) {
+        ui.atributoCurrencyWrap.style.display = showCurrency ? '' : 'none';
     }
 }
 // @ts-nocheck
@@ -5405,8 +5594,8 @@ function validateDocumento(tipoId, valores, editingDocId) {
             });
             continue;
         }
-        if (rules.hasNumber) {
-            const num = Number(raw);
+        if (rules.hasNumber || attr.tipoCampo === 'currency') {
+            const num = parseLocaleNumber(raw);
             if (!Number.isFinite(num)) {
                 errors.push({
                     attrId: attr.id,
@@ -5427,8 +5616,8 @@ function validateDocumento(tipoId, valores, editingDocId) {
             }
         }
         if (rules.max !== null) {
-            if (attr.tipoCampo === 'numero' || rules.hasNumber) {
-                const num = Number(raw);
+            if (attr.tipoCampo === 'numero' || attr.tipoCampo === 'currency' || rules.hasNumber) {
+                const num = parseLocaleNumber(raw);
                 if (!Number.isFinite(num) || num > rules.max) {
                     errors.push({
                         attrId: attr.id,

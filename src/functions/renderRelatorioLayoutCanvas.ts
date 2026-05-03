@@ -70,14 +70,31 @@ function renderRelatorioLayoutCanvas(tipoId, configId) {
 
   const attrs = getAtributosByTipo(tipoId);
   const attrById = new Map(attrs.map((a) => [a.id, a]));
-  const grid = document.createElement('div');
-  grid.className = 'layout-grid';
+  const sectionOrder = syncLayoutSectionsForTipo(tipoId);
+  const groups = new Map();
+
+  for (const key of sectionOrder) {
+    groups.set(key, { key, nome: sectionNameFromKey(key), items: [] });
+  }
 
   for (let i = 0; i < relatorioLayoutWorking.length; i += 1) {
     const item = relatorioLayoutWorking[i];
     const attr = attrById.get(item.attrId);
     if (!attr) continue;
+    const key = sectionKeyFromAttr(attr);
+    if (!groups.has(key)) groups.set(key, { key, nome: sectionNameFromKey(key), items: [] });
+    groups.get(key).items.push({ item, attr, index: i });
+  }
 
+  const orderedGroups = [
+    ...sectionOrder.map((key) => groups.get(key)).filter((group) => group && group.items.length),
+    ...Array.from(groups.values()).filter((group) => !sectionOrder.includes(group.key) && group.items.length),
+  ];
+
+  const sectionsWrap = document.createElement('div');
+  sectionsWrap.className = 'layout-sections';
+
+  const createCard = ({ item, attr, index }, grid) => {
     const card = document.createElement('div');
     card.className = 'layout-item';
     card.style.gridColumn = `span ${item.colSpan}`;
@@ -95,13 +112,13 @@ function renderRelatorioLayoutCanvas(tipoId, configId) {
           </select>
         </label>
         <div class="layout-item-actions">
-          <button type="button" class="btn-flat btn-small" data-report-layout-up="${item.attrId}" ${i === 0 ? 'disabled' : ''}>↑</button>
-          <button type="button" class="btn-flat btn-small" data-report-layout-down="${item.attrId}" ${i === relatorioLayoutWorking.length - 1 ? 'disabled' : ''}>↓</button>
+          <button type="button" class="btn-flat btn-small" data-report-layout-up="${item.attrId}" ${index === 0 ? 'disabled' : ''}>↑</button>
+          <button type="button" class="btn-flat btn-small" data-report-layout-down="${item.attrId}" ${index === relatorioLayoutWorking.length - 1 ? 'disabled' : ''}>↓</button>
         </div>
       </div>
     `;
 
-    if (attr.tipoCampo === 'numero') {
+    if (attr.tipoCampo === 'numero' || attr.tipoCampo === 'currency') {
       const sumLabel = document.createElement('label');
       sumLabel.className = 'layout-block-visibility';
       sumLabel.style.marginTop = '6px';
@@ -166,8 +183,29 @@ function renderRelatorioLayoutCanvas(tipoId, configId) {
       renderRelatorioLayoutCanvas(tipoId, configId);
     });
 
-    grid.appendChild(card);
+    return card;
+  };
+
+  for (const group of orderedGroups) {
+    const section = document.createElement('div');
+    section.className = `layout-section ${group.key === '__sem_secao__' ? 'layout-section-fixed-top' : ''}`;
+    section.innerHTML = `
+      <div class="layout-section-header">
+        <strong>${escapeHtml(group.nome)}</strong>
+        <small>${group.key === '__sem_secao__' ? 'sem secao' : 'atributos da secao'}</small>
+      </div>
+    `;
+
+    const grid = document.createElement('div');
+    grid.className = 'layout-grid';
+
+    for (const entry of group.items) {
+      grid.appendChild(createCard(entry, grid));
+    }
+
+    section.appendChild(grid);
+    sectionsWrap.appendChild(section);
   }
 
-  ui.relatorioLayoutCanvas.appendChild(grid);
+  ui.relatorioLayoutCanvas.appendChild(sectionsWrap);
 }

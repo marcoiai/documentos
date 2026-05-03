@@ -40,7 +40,16 @@ let relatorioLastResult = {
   rows: [],
 };
 
-bindEvents();
-renderAll();
-initRouting();
-openPendingEditFromUrl();
+initApp();
+
+async function initApp() {
+  bindEvents();
+  try {
+    await pullStateSnapshotFromApi();
+  } catch (error) {
+    console.warn('[app-state] erro ao carregar snapshot da API', error);
+  }
+  renderAll();
+  initRouting();
+  openPendingEditFromUrl();
+}

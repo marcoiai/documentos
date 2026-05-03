@@ -14,7 +14,26 @@ const dialog = ref(false)
 const saving = ref(false)
 const editing = ref<Atributo | null>(null)
 
-const fieldTypes = ['texto', 'numero', 'data', 'boolean', 'textarea', 'textarea_template', 'texto_placeholder', 'assinatura']
+const fieldTypes = ['texto', 'numero', 'currency', 'data', 'boolean', 'textarea', 'textarea_template', 'texto_placeholder', 'assinatura']
+function parseCurrencySymbol(templateText: string | null | undefined) {
+  try {
+    return JSON.parse(String(templateText || '')).symbol !== false
+  }
+  catch {
+    return true
+  }
+}
+
+function buildTemplateText() {
+  if (form.tipo_campo === 'texto_placeholder')
+    return form.template_texto || null
+
+  if (form.tipo_campo === 'currency')
+    return JSON.stringify({ symbol: form.currency_symbol !== false })
+
+  return null
+}
+
 const form = reactive({
   tipo_external_id: '',
   secao_external_id: '' as string | null,
@@ -24,6 +43,7 @@ const form = reactive({
   peso: '' as string | number,
   mascara: '',
   template_texto: '',
+  currency_symbol: true,
 })
 
 const { tipos, secoes, atributos, errorMessage, successMessage, loading, loadData, clearMessages, saveAtributo, deleteAtributo } = useDocumentosApp()
@@ -45,6 +65,7 @@ function resetForm() {
   form.peso = ''
   form.mascara = ''
   form.template_texto = ''
+  form.currency_symbol = true
   editing.value = null
 }
 
@@ -64,7 +85,8 @@ function openEdit(attr: Atributo) {
   form.validador = attr.validador || ''
   form.peso = attr.peso ?? ''
   form.mascara = attr.mascara || ''
-  form.template_texto = attr.template_texto || ''
+  form.template_texto = attr.tipo_campo === 'texto_placeholder' ? (attr.template_texto || '') : ''
+  form.currency_symbol = attr.tipo_campo === 'currency' ? parseCurrencySymbol(attr.template_texto) : true
   dialog.value = true
 }
 
@@ -81,7 +103,7 @@ async function submit() {
       validador: form.validador || null,
       peso: form.peso,
       mascara: form.mascara || null,
-      template_texto: form.template_texto || null,
+      template_texto: buildTemplateText(),
     })
     dialog.value = false
     resetForm()
@@ -157,7 +179,10 @@ onMounted(async () => {
           <VCol cols="12" md="6"><VTextField v-model="form.validador" label="Validador" rounded="lg" /></VCol>
           <VCol cols="12" md="6"><VTextField v-model="form.peso" label="Peso" rounded="lg" type="number" /></VCol>
           <VCol cols="12" md="6"><VTextField v-model="form.mascara" label="Mascara" rounded="lg" /></VCol>
-          <VCol cols="12"><VTextarea v-model="form.template_texto" label="Template de texto" rounded="lg" rows="3" /></VCol>
+          <VCol v-if="form.tipo_campo === 'texto_placeholder'" cols="12"><VTextarea v-model="form.template_texto" label="Template de texto" rounded="lg" rows="3" /></VCol>
+          <VCol v-if="form.tipo_campo === 'currency'" cols="12" md="6">
+            <VSwitch v-model="form.currency_symbol" label="Mostrar simbolo monetario" color="primary" inset />
+          </VCol>
         </VRow>
       </VCardText>
       <VCardActions class="pa-6 pt-0">

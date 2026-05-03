@@ -1,6 +1,11 @@
 // @ts-nocheck
 function resolveAttrValueForOutput(attr, raw, ctx) {
   if (attr.tipoCampo === 'boolean') return raw ? 'Sim' : 'Nao';
+  if (attr.tipoCampo === 'currency') {
+    const parsed = parseLocaleNumber(raw);
+    if (parsed === null) return '-';
+    return formatCurrencyNumber(parsed, getCurrencyConfig(attr));
+  }
 
   let base = raw;
   if (

@@ -53563,6 +53563,113 @@ To suppress this warning, you need to explicitly provide the \`palette.${key}Cha
           ] })
         ] });
       }
+      function LayoutPage() {
+        const tipos = app?.getTipos?.() || [];
+        const [tipoId, setTipoId] = (0, import_react10.useState)("");
+        (0, import_react10.useEffect)(() => {
+          if (!tipoId && tipos[0]) {
+            setTipoId(tipos[0].id);
+          }
+        }, [tipoId, tipos]);
+        const sections = tipoId ? app?.getLayoutEditorData?.(tipoId) || [] : [];
+        const sectionKeys = sections.map((section) => section.key);
+        const destinationSections = [
+          { key: "__sem_secao__", nome: "Sem secao" },
+          ...(app?.getSecoesForTipo?.(tipoId) || []).map((secao) => ({ key: secao.id, nome: secao.nome }))
+        ];
+        const moveSection = (key, direction) => {
+          const index = sectionKeys.indexOf(key);
+          const nextIndex = index + direction;
+          if (index < 0 || nextIndex < 0 || nextIndex >= sectionKeys.length) return;
+          app?.moveLayoutSectionBefore?.(tipoId, key, sectionKeys[nextIndex]);
+        };
+        const moveItem = (items, attrId, direction) => {
+          const index = items.findIndex((item) => item.attr.id === attrId);
+          const target = items[index + direction];
+          if (index < 0 || !target) return;
+          app?.swapLayoutItems?.(tipoId, attrId, target.attr.id);
+        };
+        const resetLayout = () => {
+          if (!tipoId) return;
+          app?.resetLayoutForTipo?.(tipoId);
+          app?.notify?.("Layout resetado para o padrao do tipo.");
+        };
+        return /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Stack_default, { spacing: 2, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Stack_default, { direction: { xs: "column", md: "row" }, justifyContent: "space-between", spacing: 2, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Box_default, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Typography_default, { variant: "h4", children: "Layout" }),
+              /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Typography_default, { color: "text.secondary", children: "Organize secoes, ordem e largura dos campos sem depender da tela legada." })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Stack_default, { direction: "row", spacing: 1, children: /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Button_default, { variant: "outlined", onClick: resetLayout, disabled: !tipoId, children: "Resetar" }) })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Card_default, { children: /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(CardContent_default, { children: /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Stack_default, { direction: { xs: "column", md: "row" }, spacing: 2, alignItems: { md: "center" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(FormControl_default, { fullWidth: true, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(InputLabel_default, { children: "Tipo" }),
+              /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Select_default, { label: "Tipo", value: tipoId, onChange: (event) => setTipoId(event.target.value), children: tipos.map((tipo) => /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(MenuItem_default, { value: tipo.id, children: tipo.nome }, tipo.id)) })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Typography_default, { variant: "body2", color: "text.secondary", children: "Alteracoes de layout sao salvas automaticamente." })
+          ] }) }) }),
+          !tipoId ? /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(EmptyState, { title: "Nenhum tipo disponivel", description: "Crie um tipo para editar o layout." }) : sections.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(EmptyState, { title: "Nenhuma secao encontrada", description: "Vincule secoes ou atributos ao tipo para montar o layout." }) : /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Stack_default, { spacing: 2, children: sections.map((section, sectionIndex) => /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Card_default, { children: /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(CardContent_default, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Stack_default, { direction: { xs: "column", md: "row" }, justifyContent: "space-between", spacing: 2, sx: { mb: 2 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Box_default, { sx: { flex: 1 }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Stack_default, { direction: "row", spacing: 1, alignItems: "center", flexWrap: "wrap", useFlexGap: true, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Typography_default, { variant: "h6", children: section.nome }),
+                  section.key === "__sem_secao__" ? /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Chip_default, { label: "Fixa no topo", size: "small", color: "primary", variant: "outlined" }) : null
+                ] }),
+                section.cabecalho ? /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Typography_default, { variant: "body2", color: "text.secondary", sx: { mt: 1 }, children: [
+                  "Cabecalho: ",
+                  preview(section.cabecalho, 180)
+                ] }) : null,
+                section.rodape ? /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Typography_default, { variant: "body2", color: "text.secondary", sx: { mt: 0.5 }, children: [
+                  "Rodape: ",
+                  preview(section.rodape, 180)
+                ] }) : null
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Stack_default, { direction: "row", spacing: 1, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Button_default, { variant: "outlined", onClick: () => moveSection(section.key, -1), disabled: sectionIndex <= 1 || section.key === "__sem_secao__", children: "\u2191" }),
+                /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Button_default, { variant: "outlined", onClick: () => moveSection(section.key, 1), disabled: sectionIndex === sections.length - 1 || section.key === "__sem_secao__", children: "\u2193" })
+              ] })
+            ] }),
+            section.items.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Typography_default, { color: "text.secondary", children: "Sem atributos nesta secao." }) : /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Stack_default, { spacing: 1.5, children: section.items.map((item, itemIndex) => /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Card_default, { variant: "outlined", children: /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(CardContent_default, { sx: { "&:last-child": { pb: 2 } }, children: /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Stack_default, { direction: { xs: "column", lg: "row" }, justifyContent: "space-between", spacing: 2, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Box_default, { sx: { flex: 1 }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Typography_default, { fontWeight: 700, children: item.attr.nome }),
+                /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Typography_default, { variant: "body2", color: "text.secondary", children: item.attr.tipoCampo })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Stack_default, { direction: { xs: "column", md: "row" }, spacing: 1, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(FormControl_default, { sx: { minWidth: 140 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(InputLabel_default, { children: "Largura" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(
+                    Select_default,
+                    {
+                      label: "Largura",
+                      value: String(item.colSpan),
+                      onChange: (event) => app?.updateLayoutSpan?.(tipoId, item.attr.id, Number(event.target.value)),
+                      children: [3, 4, 6, 8, 12].map((value) => /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(MenuItem_default, { value: String(value), children: [
+                        value,
+                        "/12"
+                      ] }, value))
+                    }
+                  )
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(FormControl_default, { sx: { minWidth: 180 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(InputLabel_default, { children: "Secao" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(
+                    Select_default,
+                    {
+                      label: "Secao",
+                      value: section.key,
+                      onChange: (event) => app?.moveAttributeToSection?.(tipoId, item.attr.id, event.target.value),
+                      children: destinationSections.map((destination) => /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(MenuItem_default, { value: destination.key, children: destination.nome }, destination.key))
+                    }
+                  )
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Button_default, { variant: "outlined", onClick: () => moveItem(section.items, item.attr.id, -1), disabled: itemIndex === 0, children: "\u2191" }),
+                /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Button_default, { variant: "outlined", onClick: () => moveItem(section.items, item.attr.id, 1), disabled: itemIndex === section.items.length - 1, children: "\u2193" })
+              ] })
+            ] }) }) }, item.attr.id)) })
+          ] }) }, section.key)) })
+        ] });
+      }
       function renderDocumentoField(attr, value, onChange) {
         if (attr.mascara) {
           return /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(
@@ -53884,6 +53991,15 @@ To suppress this warning, you need to explicitly provide the \`palette.${key}Cha
             setResult(response.result);
             setResultDialogOpen(true);
           }
+          return response;
+        };
+        const renderPdf = async () => {
+          const response = await generate();
+          if (!response?.ok) {
+            app?.notify?.("Gere o relatorio antes de renderizar o PDF.");
+            return;
+          }
+          app?.exportRelatorioPdf?.();
         };
         return /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Stack_default, { spacing: 2, children: [
           /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Stack_default, { direction: { xs: "column", md: "row" }, justifyContent: "space-between", spacing: 2, children: [
@@ -53914,7 +54030,8 @@ To suppress this warning, you need to explicitly provide the \`palette.${key}Cha
                 app?.deleteReportConfig?.(configId);
                 applyConfig("");
               }, children: "Excluir config" }) : null,
-              /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Button_default, { variant: "contained", onClick: generate, children: "Gerar relatorio" })
+              /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Button_default, { variant: "contained", onClick: generate, children: "Gerar relatorio" }),
+              /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Button_default, { variant: "outlined", onClick: renderPdf, children: "Render PDF" })
             ] })
           ] }) }),
           /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Stack_default, { direction: { xs: "column", lg: "row" }, spacing: 2, alignItems: "flex-start", children: [
@@ -54144,7 +54261,10 @@ To suppress this warning, you need to explicitly provide the \`palette.${key}Cha
                     ] })
                   ] }) })
                 ] }) : null }),
-                /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(DialogActions_default, { children: /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Button_default, { onClick: () => setResultDialogOpen(false), children: "Fechar" }) })
+                /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(DialogActions_default, { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Button_default, { variant: "outlined", onClick: renderPdf, children: "Render PDF" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Button_default, { onClick: () => setResultDialogOpen(false), children: "Fechar" })
+                ] })
               ]
             }
           )
@@ -54491,23 +54611,6 @@ To suppress this warning, you need to explicitly provide the \`palette.${key}Cha
           ] })
         ] });
       }
-      function LegacyPageFrame({ title, description, src }) {
-        return /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(Stack_default, { spacing: 2, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Card_default, { children: /* @__PURE__ */ (0, import_jsx_runtime75.jsxs)(CardContent_default, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Typography_default, { variant: "h5", sx: { mb: 1 }, children: title }),
-            /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Typography_default, { color: "text.secondary", children: description })
-          ] }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(Card_default, { sx: { overflow: "hidden" }, children: /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(
-            Box_default,
-            {
-              component: "iframe",
-              title,
-              src,
-              sx: { width: "100%", minHeight: "78vh", border: 0, backgroundColor: "#fff" }
-            }
-          ) })
-        ] });
-      }
       function App() {
         const snapshot = useAppSnapshot();
         const route = useRoute();
@@ -54752,7 +54855,7 @@ To suppress this warning, you need to explicitly provide the \`palette.${key}Cha
             ] });
           }
           if (route === "layout") {
-            return /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(LegacyPageFrame, { title: "Layout", description: "Ferramenta legada encaixada no shell React enquanto a migracao avanca.", src: "layout.html" });
+            return /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(LayoutPage, {});
           }
           if (route === "relatorios") {
             return /* @__PURE__ */ (0, import_jsx_runtime75.jsx)(RelatoriosPage, {});

@@ -75,7 +75,7 @@ function generateRelatorio() {
   const filteredDocs = [];
   const rows = [];
   const numeroTotals = attrs.map((attr) => {
-    if (attr.tipoCampo !== 'numero') return null;
+    if (attr.tipoCampo !== 'numero' && attr.tipoCampo !== 'currency') return null;
     if (sumAllNumericFallback) return 0;
     return totalAttrSet.has(attr.id) ? 0 : null;
   });
@@ -84,9 +84,8 @@ function generateRelatorio() {
     const raw = String(value ?? '').trim();
     if (!raw) return { empty: true, kind: 'text', value: '' };
 
-    if (attr?.tipoCampo === 'numero') {
-      const normalized = raw.replace(/\./g, '').replace(',', '.');
-      const n = Number(normalized);
+    if (attr?.tipoCampo === 'numero' || attr?.tipoCampo === 'currency') {
+      const n = parseLocaleNumber(raw);
       if (!Number.isNaN(n) && Number.isFinite(n)) return { empty: false, kind: 'number', value: n };
     }
 
@@ -104,27 +103,7 @@ function generateRelatorio() {
     return { empty: false, kind: 'text', value: raw.toLocaleLowerCase() };
   };
   const parseNumericValue = (value) => {
-    const raw = String(value ?? '').trim();
-    if (!raw) return null;
-    const compact = raw.replace(/\s/g, '');
-    const hasDot = compact.includes('.');
-    const hasComma = compact.includes(',');
-    let normalized = compact;
-    if (hasDot && hasComma) {
-      const lastDot = compact.lastIndexOf('.');
-      const lastComma = compact.lastIndexOf(',');
-      const decimalSep = lastDot > lastComma ? '.' : ',';
-      const thousandSep = decimalSep === '.' ? ',' : '.';
-      normalized = compact.split(thousandSep).join('');
-      if (decimalSep === ',') normalized = normalized.replace(',', '.');
-    } else if (hasComma) {
-      normalized = compact.replace(/\./g, '').replace(',', '.');
-    } else {
-      normalized = compact.replace(/,/g, '');
-    }
-    const n = Number(normalized);
-    if (Number.isNaN(n) || !Number.isFinite(n)) return null;
-    return n;
+    return parseLocaleNumber(value);
   };
 
   for (const doc of docs) {

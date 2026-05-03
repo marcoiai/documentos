@@ -1,6 +1,7 @@
 type CampoTipo =
   | 'texto'
   | 'numero'
+  | 'currency'
   | 'data'
   | 'boolean'
   | 'textarea'

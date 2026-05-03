@@ -51,8 +51,8 @@ function validateDocumento(
       continue;
     }
 
-    if (rules.hasNumber) {
-      const num = Number(raw);
+    if (rules.hasNumber || attr.tipoCampo === 'currency') {
+      const num = parseLocaleNumber(raw);
       if (!Number.isFinite(num)) {
         errors.push({
           attrId: attr.id,
@@ -75,8 +75,8 @@ function validateDocumento(
     }
 
     if (rules.max !== null) {
-      if (attr.tipoCampo === 'numero' || rules.hasNumber) {
-        const num = Number(raw);
+      if (attr.tipoCampo === 'numero' || attr.tipoCampo === 'currency' || rules.hasNumber) {
+        const num = parseLocaleNumber(raw);
         if (!Number.isFinite(num) || num > rules.max) {
           errors.push({
             attrId: attr.id,
