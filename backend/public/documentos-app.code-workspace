@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "../../../documentos-app"
+		},
+		{
+			"path": "../.."
+		}
+	],
+    "settings": {
+        "chat.tools.terminal.autoApprove": {
+            "true": true,
+            "mysql": true
+        }
+    }
+}
